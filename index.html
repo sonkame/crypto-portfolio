@@ -105,7 +105,7 @@ main:has(> #view-bubbles.active) {
 }
 .view { display: none; }
 .view.active { display: block; }
-#view-market.active, #view-portfolio.active { flex-shrink: 0; }
+#view-market.active, #view-portfolio.active, #view-gallery.active { flex-shrink: 0; }
 #view-bubbles.active {
   display: flex;
   flex-direction: column;
@@ -871,6 +871,7 @@ th.sorted-desc::after { content: " ▼"; color: var(--accent); }
       <button class="tab active" data-view="market">Market</button>
       <button class="tab" data-view="portfolio">My Portfolio</button>
       <button class="tab" data-view="bubbles">Bubbles</button>
+      <button class="tab" data-view="gallery">Gallery</button>
     </nav>
     <div id="status" class="status"></div>
   </div>
@@ -1040,6 +1041,11 @@ th.sorted-desc::after { content: " ▼"; color: var(--accent); }
       <canvas id="bubbles-canvas"></canvas>
       <div id="bubble-tip" class="bubble-tip hidden"></div>
     </div>
+  </section>
+
+  <!-- GALLERY VIEW -->
+  <section id="view-gallery" class="view">
+    <p id="gallery-empty" class="empty">No saved sites yet.</p>
   </section>
 </main>
 
@@ -2690,7 +2696,7 @@ const Bubbles = (() => {
    App shell: shared state + formatters, view switching, refresh loop, coin side panel. */
 const state = { markets: [], global: null, updatedAt: 0, stale: false };
 
-const VIEWS = ['market', 'portfolio', 'bubbles'];
+const VIEWS = ['market', 'portfolio', 'bubbles', 'gallery'];
 const REFRESH_MS = 60 * 1000;
 
 /* ----- shared formatters ----- */
