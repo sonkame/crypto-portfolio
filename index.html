@@ -627,6 +627,72 @@ th.sorted-desc::after { content: " ▼"; color: var(--accent); }
 }
 .bubble-tip .tip-name { font-weight: 700; }
 
+/* ---------- Gallery ---------- */
+.gallery-toolbar { margin-bottom: 14px; }
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+.gallery-card {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--bg-2);
+  cursor: pointer;
+}
+.gallery-thumb-wrap { position: relative; aspect-ratio: 4 / 3; overflow: hidden; background: var(--bg-3); }
+.gallery-thumb-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gallery-card-title {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 10px 12px 8px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0));
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gallery-card:hover .gallery-card-title { opacity: 1; }
+
+.gallery-file-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: center;
+}
+.gallery-file-label:hover { border-color: var(--accent); color: var(--text); }
+.gallery-modal-preview {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-3);
+  object-fit: cover;
+  display: none;
+}
+.gallery-modal-preview.shown { display: block; }
+.gallery-error {
+  font-size: 12.5px;
+  color: var(--red);
+  display: none;
+  margin: 0;
+}
+.gallery-error.shown { display: block; }
+
 /* ---------- Coin Detail Popup ---------- */
 .panel-backdrop {
   position: fixed;
@@ -1045,7 +1111,11 @@ th.sorted-desc::after { content: " ▼"; color: var(--accent); }
 
   <!-- GALLERY VIEW -->
   <section id="view-gallery" class="view">
-    <p id="gallery-empty" class="empty">No saved sites yet.</p>
+    <div class="gallery-toolbar">
+      <button class="btn" id="gallery-add-btn">＋ Add site</button>
+    </div>
+    <p id="gallery-empty" class="empty">No saved sites yet — click “＋ Add site” to save your first one.<br><small>Saved locally in this browser only.</small></p>
+    <div class="gallery-grid hidden" id="gallery-grid"></div>
   </section>
 </main>
 
@@ -1172,6 +1242,21 @@ th.sorted-desc::after { content: " ▼"; color: var(--accent); }
 <div class="menu hidden" id="row-menu">
   <button data-act="edit">✏️ Edit holding</button>
   <button data-act="remove" class="danger">🗑 Remove coin</button>
+</div>
+
+<!-- ADD / EDIT GALLERY SITE MODAL -->
+<div class="modal" id="gallery-modal" role="dialog" aria-modal="true">
+  <button class="modal-close" data-close aria-label="Close">×</button>
+  <h3 id="gallery-modal-title">Add Site</h3>
+  <form id="gallery-form" class="tx-form" autocomplete="off">
+    <input type="file" id="gallery-file" accept="image/*" class="hidden">
+    <label for="gallery-file" class="gallery-file-label" id="gallery-file-label">Choose a screenshot…</label>
+    <img id="gallery-preview" class="gallery-modal-preview" alt="">
+    <input id="gallery-title" type="text" placeholder="Title" aria-label="Title" maxlength="80">
+    <input id="gallery-url" type="text" placeholder="https://example.com" aria-label="URL">
+    <p class="gallery-error" id="gallery-error"></p>
+    <button type="submit" id="gallery-submit" class="btn cta">Add</button>
+  </form>
 </div>
 
 <script>
@@ -2692,6 +2777,209 @@ const Bubbles = (() => {
 </script>
 
 <script>
+/* ==================== gallery.js ====================
+   Gallery view: save website screenshots + links in a flat grid,
+   independent of crypto market data. Images are compressed client-side
+   and stored as base64 JPEG data URLs in localStorage. */
+const Gallery = (() => {
+  const KEY = 'cryptofolio.gallery.v1';
+  const MAX_DIM = 480;
+  const JPEG_QUALITY = 0.72;
+
+  let entries = load();
+  let editingId = null;
+  let pendingThumbnail = null; // data URL staged from the file input until submit
+
+  /* ----- storage ----- */
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(KEY);
+      const list = raw ? JSON.parse(raw) : [];
+      return Array.isArray(list) ? list : [];
+    } catch { return []; }
+  }
+
+  function save() {
+    localStorage.setItem(KEY, JSON.stringify(entries));
+  }
+
+  function entryById(id) {
+    return entries.find(e => e.id === id) || null;
+  }
+
+  /* ----- image compression ----- */
+
+  function readImageFile(file) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('Could not read file'));
+      reader.onload = () => {
+        img.onerror = () => reject(new Error('Could not decode image'));
+        img.onload = () => resolve(img);
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function compressImage(file) {
+    const img = await readImageFile(file);
+    const scale = Math.min(1, MAX_DIM / Math.max(img.width, img.height));
+    const w = Math.max(1, Math.round(img.width * scale));
+    const h = Math.max(1, Math.round(img.height * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    return canvas.toDataURL('image/jpeg', JPEG_QUALITY);
+  }
+
+  /* ----- modal ----- */
+
+  function showError(msg) {
+    const el = document.getElementById('gallery-error');
+    el.textContent = msg;
+    el.classList.toggle('shown', !!msg);
+  }
+
+  function resetForm() {
+    editingId = null;
+    pendingThumbnail = null;
+    document.getElementById('gallery-file').value = '';
+    document.getElementById('gallery-title').value = '';
+    document.getElementById('gallery-url').value = '';
+    document.getElementById('gallery-preview').classList.remove('shown');
+    document.getElementById('gallery-preview').src = '';
+    document.getElementById('gallery-file-label').textContent = 'Choose a screenshot…';
+    showError('');
+    document.getElementById('gallery-modal-title').textContent = 'Add Site';
+    document.getElementById('gallery-submit').textContent = 'Add';
+  }
+
+  function openAddModal() {
+    resetForm();
+    document.querySelectorAll('.modal.open').forEach(m => m.classList.remove('open'));
+    document.getElementById('gallery-modal').classList.add('open');
+    document.getElementById('modal-backdrop').classList.add('open');
+    document.getElementById('gallery-title').focus();
+  }
+
+  async function onFileChange(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      showError('Please choose an image file.');
+      e.target.value = '';
+      return;
+    }
+    try {
+      pendingThumbnail = await compressImage(file);
+      const preview = document.getElementById('gallery-preview');
+      preview.src = pendingThumbnail;
+      preview.classList.add('shown');
+      document.getElementById('gallery-file-label').textContent = file.name;
+      showError('');
+    } catch (err) {
+      showError('Could not read that image — try a different file.');
+    }
+  }
+
+  function normalizeUrl(url) {
+    return /^[a-z][a-z0-9+.-]*:\/\//i.test(url) ? url : 'https://' + url;
+  }
+
+  function hostnameOf(url) {
+    try { return new URL(url).hostname; } catch { return url; }
+  }
+
+  function onSubmit(e) {
+    e.preventDefault();
+    const title = document.getElementById('gallery-title').value.trim();
+    const urlRaw = document.getElementById('gallery-url').value.trim();
+    if (!urlRaw) { showError('Please enter a URL.'); return; }
+    if (!pendingThumbnail) { showError('Please choose a screenshot.'); return; }
+    const url = normalizeUrl(urlRaw);
+
+    if (editingId) {
+      const entry = entryById(editingId);
+      if (entry) {
+        entry.title = title || hostnameOf(url);
+        entry.url = url;
+        entry.thumbnail = pendingThumbnail;
+      }
+    } else {
+      entries.push({
+        id: 'g_' + Date.now().toString(36),
+        title: title || hostnameOf(url),
+        url,
+        thumbnail: pendingThumbnail,
+        createdAt: Date.now(),
+      });
+    }
+
+    render();
+
+    let quotaError = false;
+    try {
+      save();
+    } catch (err) {
+      quotaError = true;
+    }
+    if (quotaError) {
+      showError('Couldn’t save — storage may be full. Try removing some older entries.');
+      return;
+    }
+    document.getElementById('gallery-modal').classList.remove('open');
+    document.getElementById('modal-backdrop').classList.remove('open');
+  }
+
+  /* ----- rendering ----- */
+
+  function cardHTML(entry) {
+    return '<div class="gallery-card" data-id="' + esc(entry.id) + '">'
+      + '<div class="gallery-thumb-wrap"><img src="' + esc(entry.thumbnail) + '" alt="" loading="lazy">'
+      + '<span class="gallery-card-title">' + esc(entry.title) + '</span></div>'
+      + '</div>';
+  }
+
+  function render() {
+    const empty = document.getElementById('gallery-empty');
+    const grid = document.getElementById('gallery-grid');
+    if (!entries.length) {
+      empty.classList.remove('hidden');
+      grid.classList.add('hidden');
+      grid.innerHTML = '';
+      return;
+    }
+    empty.classList.add('hidden');
+    grid.classList.remove('hidden');
+    const sorted = [...entries].sort((a, b) => b.createdAt - a.createdAt);
+    grid.innerHTML = sorted.map(cardHTML).join('');
+  }
+
+  /* ----- init ----- */
+
+  function init() {
+    document.getElementById('gallery-add-btn').addEventListener('click', openAddModal);
+    document.getElementById('gallery-file').addEventListener('change', onFileChange);
+    document.getElementById('gallery-form').addEventListener('submit', onSubmit);
+    document.getElementById('gallery-grid').addEventListener('click', e => {
+      const card = e.target.closest('.gallery-card[data-id]');
+      if (card) {
+        const entry = entryById(card.dataset.id);
+        if (entry) window.open(entry.url, '_blank', 'noopener');
+      }
+    });
+    render();
+  }
+
+  return { init };
+})();
+</script>
+
+<script>
 /* ==================== app.js ====================
    App shell: shared state + formatters, view switching, refresh loop, coin side panel. */
 const state = { markets: [], global: null, updatedAt: 0, stale: false };
@@ -3032,6 +3320,7 @@ document.addEventListener('DOMContentLoaded', () => {
   Analytics.init();
   Bubbles.init();
   CoinPanel.init();
+  Gallery.init();
 
   document.querySelectorAll('.tab').forEach(t =>
     t.addEventListener('click', () => switchView(t.dataset.view)));
