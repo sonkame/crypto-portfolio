@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CryptoFolio — Markets, Portfolio &amp; Bubbles</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="site-header">
+  <div class="header-inner">
+    <div class="brand">🪙 Crypto<span>Folio</span></div>
+    <nav class="tabs">
+      <button class="tab active" data-view="market">Market</button>
+      <button class="tab" data-view="portfolio">My Portfolio</button>
+      <button class="tab" data-view="bubbles">Bubbles</button>
+    </nav>
+    <div id="status" class="status"></div>
+  </div>
+</header>
+
+<div id="banner" class="banner hidden"></div>
+
+<main>
+  <!-- MARKET VIEW -->
+  <section id="view-market" class="view active">
+    <div class="stats-bar">
+      <div class="stat"><span class="stat-label">Market Cap</span><span class="stat-value" id="gs-mcap">—</span></div>
+      <div class="stat"><span class="stat-label">24h Volume</span><span class="stat-value" id="gs-volume">—</span></div>
+      <div class="stat"><span class="stat-label">BTC Dominance</span><span class="stat-value" id="gs-btc">—</span></div>
+      <div class="stat"><span class="stat-label">Mkt Cap 24h</span><span class="stat-value" id="gs-change">—</span></div>
+    </div>
+    <div class="controls">
+      <input id="market-search" type="search" placeholder="Search coin or symbol…" autocomplete="off">
+    </div>
+    <div class="table-wrap">
+      <table class="data-table" id="market-table">
+        <thead>
+          <tr>
+            <th data-key="market_cap_rank" class="num sortable sorted-asc">#</th>
+            <th data-key="name" class="sortable">Coin</th>
+            <th data-key="current_price" class="num sortable">Price</th>
+            <th data-key="p1h" class="num sortable col-1h">1h</th>
+            <th data-key="p24h" class="num sortable">24h</th>
+            <th data-key="p7d" class="num sortable col-7d">7d</th>
+            <th data-key="market_cap" class="num sortable col-mcap">Market Cap</th>
+            <th data-key="total_volume" class="num sortable col-vol">Volume (24h)</th>
+            <th class="col-spark">Last 7 Days</th>
+          </tr>
+        </thead>
+        <tbody id="market-body">
+          <tr><td colspan="9" class="loading-cell">Loading market data…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- PORTFOLIO VIEW -->
+  <section id="view-portfolio" class="view">
+    <!-- portfolio selector tabs -->
+    <div class="pf-tabs-row">
+      <div class="pf-tabs" id="pf-tabs"></div>
+      <button class="pf-tab pf-new" id="pf-new-btn">+ New Portfolio</button>
+    </div>
+
+    <!-- title + actions -->
+    <div class="pf-head">
+      <div class="pf-title">
+        <span class="pf-title-icon" id="pf-title-icon">⭐</span>
+        <h2 id="pf-title-name">My Portfolio</h2>
+        <span class="badge hidden" id="pf-default-badge">Default</span>
+      </div>
+      <div class="pf-actions" id="pf-actions">
+        <button class="btn" id="pf-add-btn">＋ Add coin</button>
+        <button class="btn" id="pf-remove-btn">− Remove coin</button>
+        <div class="menu-wrap">
+          <button class="btn icon" id="pf-menu-btn" aria-label="Portfolio menu">⋮</button>
+          <div class="menu hidden" id="pf-menu">
+            <button data-act="rename">✏️ Rename portfolio</button>
+            <button data-act="delete" class="danger">🗑 Delete portfolio</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- summary cards -->
+    <div class="pf-summary">
+      <div class="card">
+        <span class="card-value" id="pf-total">$0.00</span>
+        <span class="card-label">Current Balance</span>
+      </div>
+      <div class="card">
+        <span class="card-value" id="pf-24h">—</span>
+        <span class="card-label">24h Portfolio Change <span id="pf-24h-pct"></span></span>
+      </div>
+      <div class="card">
+        <span class="card-value" id="pf-pl">—</span>
+        <span class="card-label">Total Profit / Loss <span id="pf-pl-pct"></span></span>
+      </div>
+      <div class="card">
+        <span class="card-value card-top-performer" id="pf-top-coin">—</span>
+        <span class="card-label">Top Performer <span class="chip">24H</span> <span id="pf-top-chg"></span></span>
+      </div>
+    </div>
+
+    <!-- sub tabs -->
+    <div class="pf-subtabs">
+      <button class="pf-subtab active" data-sub="coins">Coins</button>
+      <button class="pf-subtab" data-sub="analytics">✦ Analytics</button>
+    </div>
+
+    <!-- COINS PANEL -->
+    <div class="pf-panel active" id="pf-panel-coins">
+      <p id="pf-empty" class="empty">No holdings yet — click “＋ Add coin” to add your first coin.<br><small>Your portfolios are stored locally in this browser only.</small></p>
+      <div class="table-wrap">
+        <table class="data-table hidden" id="pf-table">
+          <thead>
+            <tr>
+              <th class="num">#</th><th>Coin</th><th class="num">Price</th>
+              <th class="num col-1h">1h</th><th class="num">24h</th><th class="num col-7d">7d</th>
+              <th class="num col-vol">24h Volume</th><th class="num col-mcap">Market Cap</th>
+              <th class="col-spark">Last 7 Days</th>
+              <th class="num">▼ Holdings</th><th class="num">PNL</th><th class="num">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="pf-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ANALYTICS PANEL -->
+    <div class="pf-panel" id="pf-panel-analytics">
+      <p id="an-empty" class="empty hidden">Add coins to this portfolio to see analytics.</p>
+      <div class="an-grid" id="an-grid">
+        <div class="an-card">
+          <div class="an-card-head">
+            <h3>Portfolio Performance</h3>
+            <div class="segmented an-tf" id="an-perf-tf"></div>
+          </div>
+          <div class="an-chart-wrap">
+            <canvas id="an-perf-chart"></canvas>
+            <div class="an-loading hidden" id="an-perf-loading">Loading…</div>
+          </div>
+        </div>
+        <div class="an-card">
+          <div class="an-card-head">
+            <h3>Profit &amp; Loss</h3>
+            <div class="segmented an-tf" id="an-pnl-tf"></div>
+          </div>
+          <div class="an-chart-wrap">
+            <canvas id="an-pnl-chart"></canvas>
+            <div class="an-loading hidden" id="an-pnl-loading">Loading…</div>
+          </div>
+        </div>
+        <div class="an-card">
+          <div class="an-card-head"><h3>Coins Allocation</h3></div>
+          <div class="pf-alloc-inner">
+            <canvas id="an-donut" width="240" height="240"></canvas>
+            <ul id="an-donut-legend" class="legend"></ul>
+          </div>
+        </div>
+        <div class="an-card">
+          <div class="an-card-head"><h3>Category Allocation</h3></div>
+          <div class="an-cat-bar" id="an-cat-bar"></div>
+          <ul class="legend an-cat-legend" id="an-cat-legend"></ul>
+          <p class="an-cat-note muted" id="an-cat-note"></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BUBBLES VIEW -->
+  <section id="view-bubbles" class="view">
+    <div class="bubbles-toolbar">
+      <div class="segmented" id="tf-toggle">
+        <button data-tf="1h">1h</button>
+        <button data-tf="24h" class="active">24h</button>
+        <button data-tf="7d">7d</button>
+      </div>
+      <span class="hint">Size = market cap · Color = % change · Blue ring = in your portfolio · Drag, hover, click</span>
+    </div>
+    <div class="bubbles-wrap" id="bubbles-wrap">
+      <canvas id="bubbles-canvas"></canvas>
+      <div id="bubble-tip" class="bubble-tip hidden"></div>
+    </div>
+  </section>
+</main>
+
+<!-- COIN DETAIL POPUP (two-column: sidebar + chart, like CryptoBubbles) -->
+<div id="coin-panel" class="side-panel" role="dialog" aria-modal="true">
+  <div class="sp-inner">
+    <div class="sp-top">
+      <div class="sp-coin-id">
+        <img id="cp-logo" src="" alt="" width="32" height="32">
+        <div class="sp-name-block">
+          <div class="sp-name-row">
+            <span id="cp-name" class="sp-name"></span>
+            <span id="cp-sym" class="sp-sym"></span>
+          </div>
+          <span id="cp-rank" class="sp-rank muted"></span>
+        </div>
+      </div>
+      <div class="sp-price-block">
+        <span id="cp-price" class="sp-price"></span>
+        <span id="cp-24h" class="sp-chg"></span>
+      </div>
+      <button class="sp-close" id="panel-close" aria-label="Close">×</button>
+    </div>
+
+    <div class="sp-body">
+      <div class="sp-side">
+        <div class="sp-converter">
+          <div class="sp-conv-field">
+            <input id="cp-conv-coin" type="number" min="0" step="any" value="1" aria-label="Coin amount">
+            <span id="cp-conv-sym" class="conv-badge"></span>
+          </div>
+          <span class="conv-arrow">⇌</span>
+          <div class="sp-conv-field">
+            <input id="cp-conv-usd" type="number" min="0" step="any" aria-label="USD amount">
+            <span class="conv-badge">USD</span>
+          </div>
+        </div>
+
+        <div class="sp-tf-bar">
+          <div class="sp-tf-tabs" id="panel-tf-tabs">
+            <button data-days="1" data-points="12">1H</button>
+            <button data-days="1" data-default class="active">1D</button>
+            <button data-days="7">1W</button>
+            <button data-days="30">1M</button>
+            <button data-days="365">1Y</button>
+          </div>
+          <span id="cp-chart-change" class="cp-chart-change"></span>
+        </div>
+
+        <div class="sp-stats" id="cp-stats"></div>
+      </div>
+
+      <div class="sp-chart-col">
+        <div class="sp-chart-wrap">
+          <canvas id="cp-chart"></canvas>
+          <div id="cp-chart-loading" class="sp-chart-loading">Loading chart…</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="panel-backdrop" class="panel-backdrop"></div>
+
+<!-- shared modal backdrop -->
+<div id="modal-backdrop" class="panel-backdrop"></div>
+
+<!-- ADD / EDIT TRANSACTION MODAL -->
+<div class="modal" id="tx-modal" role="dialog" aria-modal="true">
+  <button class="modal-close" data-close aria-label="Close">×</button>
+  <h3 id="tx-title">Add Coin</h3>
+  <form id="pf-form" class="tx-form" autocomplete="off">
+    <div class="combo">
+      <input id="pf-coin" placeholder="Search coin…" aria-label="Coin">
+      <div id="pf-coin-list" class="combo-list hidden"></div>
+    </div>
+    <input id="pf-amount" type="number" min="0" step="any" placeholder="Amount" aria-label="Amount">
+    <input id="pf-buyprice" type="number" min="0" step="any" placeholder="Buy price (USD)" aria-label="Buy price in USD">
+    <button type="submit" id="pf-submit" class="btn cta">Add</button>
+  </form>
+</div>
+
+<!-- REMOVE COIN MODAL -->
+<div class="modal" id="rm-modal" role="dialog" aria-modal="true">
+  <button class="modal-close" data-close aria-label="Close">×</button>
+  <h3>Remove Coin</h3>
+  <div id="rm-list" class="rm-list"></div>
+</div>
+
+<!-- NEW / RENAME PORTFOLIO MODAL -->
+<div class="modal" id="np-modal" role="dialog" aria-modal="true">
+  <button class="modal-close" data-close aria-label="Close">×</button>
+
+  <div class="np-step" id="np-step1">
+    <h3>New Portfolio</h3>
+    <button type="button" class="np-option selected" id="np-opt-manual">
+      <span class="np-opt-icon">📝</span>
+      <span class="np-opt-title">Manually track coins</span>
+      <span class="np-opt-desc">Search &amp; select coins to add from our database of 14,000+ cryptocurrencies.</span>
+      <span class="np-opt-note">Unlimited</span>
+    </button>
+    <button type="button" class="np-option disabled" id="np-opt-wallet" title="Not available in this local app">
+      <span class="np-opt-chip">🔵🟣🟡 +13 chains</span>
+      <span class="np-opt-icon">👛</span>
+      <span class="np-opt-title">Track wallet address <span class="np-dot"></span></span>
+      <span class="np-opt-desc">Track your holdings automatically. No signing needed — we only read public data.</span>
+      <span class="np-opt-note">0/2 wallet tracked <span class="chip">Free Plan</span></span>
+      <span class="np-opt-note muted">Want more? <u>Upgrade to Premium</u> (not available in this local app)</span>
+    </button>
+    <button class="btn cta" id="np-next">Next</button>
+  </div>
+
+  <div class="np-step hidden" id="np-step2">
+    <h3 id="np-step2-title">New Portfolio</h3>
+    <label class="np-label" for="np-name">Icon &amp; name</label>
+    <div class="np-name-row">
+      <button type="button" class="np-icon-btn" id="np-icon" title="Change icon">⭐</button>
+      <input id="np-name" type="text" placeholder="My Portfolio" maxlength="24">
+    </div>
+    <button class="btn cta" id="np-create">Create</button>
+  </div>
+</div>
+
+<!-- floating per-row menu (Coins table ⋮) -->
+<div class="menu hidden" id="row-menu">
+  <button data-act="edit">✏️ Edit holding</button>
+  <button data-act="remove" class="danger">🗑 Remove coin</button>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/market.js"></script>
+<script src="js/portfolio.js"></script>
+<script src="js/analytics.js"></script>
+<script src="js/bubbles.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
