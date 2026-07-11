@@ -289,6 +289,7 @@ th.sorted-desc::after { content: " ▼"; color: var(--accent); }
 .menu button:hover { background: var(--bg-2); }
 .menu button.danger { color: var(--red); }
 #row-menu { position: fixed; top: 0; left: 0; right: auto; width: max-content; }
+#gallery-menu { position: fixed; top: 0; left: 0; right: auto; width: max-content; }
 
 .pf-summary {
   display: grid;
@@ -661,6 +662,27 @@ th.sorted-desc::after { content: " ▼"; color: var(--accent); }
   text-overflow: ellipsis;
 }
 .gallery-card:hover .gallery-card-title { opacity: 1; }
+.gallery-card-menu-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(11, 14, 20, 0.65);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  font-size: 14px;
+  padding: 0;
+}
+.gallery-card:hover .gallery-card-menu-btn,
+.gallery-card-menu-btn:focus { opacity: 1; }
 
 .gallery-file-label {
   display: flex;
@@ -1257,6 +1279,12 @@ th.sorted-desc::after { content: " ▼"; color: var(--accent); }
     <p class="gallery-error" id="gallery-error"></p>
     <button type="submit" id="gallery-submit" class="btn cta">Add</button>
   </form>
+</div>
+
+<!-- floating per-card menu (Gallery ⋮) -->
+<div class="menu hidden" id="gallery-menu">
+  <button data-gact="edit">✏️ Edit</button>
+  <button data-gact="remove" class="danger">🗑 Delete</button>
 </div>
 
 <script>
@@ -2789,6 +2817,7 @@ const Gallery = (() => {
   let entries = load();
   let editingId = null;
   let pendingThumbnail = null; // data URL staged from the file input until submit
+  let menuEntryId = null;
 
   /* ----- storage ----- */
 
@@ -2866,6 +2895,49 @@ const Gallery = (() => {
     document.getElementById('gallery-title').focus();
   }
 
+  function openEditModal(id) {
+    const entry = entryById(id);
+    if (!entry) return;
+    resetForm();
+    editingId = id;
+    pendingThumbnail = entry.thumbnail;
+    document.getElementById('gallery-title').value = entry.title;
+    document.getElementById('gallery-url').value = entry.url;
+    document.getElementById('gallery-preview').src = entry.thumbnail;
+    document.getElementById('gallery-preview').classList.add('shown');
+    document.getElementById('gallery-file-label').textContent = 'Replace screenshot…';
+    document.getElementById('gallery-modal-title').textContent = 'Edit Site';
+    document.getElementById('gallery-submit').textContent = 'Save';
+    document.querySelectorAll('.modal.open').forEach(m => m.classList.remove('open'));
+    document.getElementById('gallery-modal').classList.add('open');
+    document.getElementById('modal-backdrop').classList.add('open');
+  }
+
+  function removeEntry(id) {
+    const entry = entryById(id);
+    if (!entry) return;
+    if (!confirm('Delete "' + entry.title + '" from your gallery?')) return;
+    entries = entries.filter(e => e.id !== id);
+    save();
+    render();
+  }
+
+  /* ----- card menu ----- */
+
+  function showMenu(btn, id) {
+    menuEntryId = id;
+    const menu = document.getElementById('gallery-menu');
+    menu.classList.remove('hidden');
+    const r = btn.getBoundingClientRect();
+    menu.style.top = (r.bottom + 4) + 'px';
+    menu.style.left = Math.max(8, r.right - menu.offsetWidth) + 'px';
+  }
+
+  function hideMenu() {
+    document.getElementById('gallery-menu').classList.add('hidden');
+    menuEntryId = null;
+  }
+
   async function onFileChange(e) {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
@@ -2941,6 +3013,7 @@ const Gallery = (() => {
     return '<div class="gallery-card" data-id="' + esc(entry.id) + '">'
       + '<div class="gallery-thumb-wrap"><img src="' + esc(entry.thumbnail) + '" alt="" loading="lazy">'
       + '<span class="gallery-card-title">' + esc(entry.title) + '</span></div>'
+      + '<button class="gallery-card-menu-btn" data-gact="menu" data-id="' + esc(entry.id) + '" title="More" aria-label="More options">⋮</button>'
       + '</div>';
   }
 
@@ -2966,11 +3039,28 @@ const Gallery = (() => {
     document.getElementById('gallery-file').addEventListener('change', onFileChange);
     document.getElementById('gallery-form').addEventListener('submit', onSubmit);
     document.getElementById('gallery-grid').addEventListener('click', e => {
+      const menuBtn = e.target.closest('button[data-gact="menu"]');
+      if (menuBtn) {
+        e.stopPropagation();
+        showMenu(menuBtn, menuBtn.dataset.id);
+        return;
+      }
       const card = e.target.closest('.gallery-card[data-id]');
       if (card) {
         const entry = entryById(card.dataset.id);
         if (entry) window.open(entry.url, '_blank', 'noopener');
       }
+    });
+    document.getElementById('gallery-menu').addEventListener('click', e => {
+      const btn = e.target.closest('button[data-gact]');
+      if (!btn || !menuEntryId) return;
+      const id = menuEntryId;
+      hideMenu();
+      if (btn.dataset.gact === 'edit') openEditModal(id);
+      else if (btn.dataset.gact === 'remove') removeEntry(id);
+    });
+    document.addEventListener('click', e => {
+      if (!e.target.closest('#gallery-menu') && !e.target.closest('button[data-gact="menu"]')) hideMenu();
     });
     render();
   }
