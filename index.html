@@ -1175,7 +1175,7 @@ th.sorted-desc::after { content: " ▼"; color: var(--accent); }
 const API = (() => {
   const BASE = 'https://api.coingecko.com/api/v3';
   const MARKETS_URL = BASE + '/coins/markets?vs_currency=usd&order=market_cap_desc'
-    + '&per_page=100&page=1&sparkline=true&price_change_percentage=1h%2C24h%2C7d';
+    + '&per_page=250&page=1&sparkline=true&price_change_percentage=1h%2C24h%2C7d';
   const GLOBAL_URL = BASE + '/global';
   const CACHE_MARKETS = 'cryptofolio.cache.markets';
   const CACHE_GLOBAL = 'cryptofolio.cache.global';
@@ -1300,7 +1300,7 @@ const API = (() => {
 
 <script>
 /* ==================== market.js ====================
-   Market view: global stats bar, sortable/searchable top-100 table, SVG sparklines. */
+   Market view: global stats bar, sortable/searchable top-250 table, SVG sparklines. */
 const Market = (() => {
   const PCT_KEYS = {
     p1h: 'price_change_percentage_1h_in_currency',
@@ -1527,7 +1527,7 @@ const Portfolio = (() => {
     hideRowMenu();
   }
 
-  /* ----- coin picker (combo box over the loaded top-100 list) ----- */
+  /* ----- coin picker (combo box over the loaded top-250 list) ----- */
 
   function renderComboList() {
     const input = document.getElementById('pf-coin');
@@ -1539,7 +1539,7 @@ const Portfolio = (() => {
     if (!state.markets || !state.markets.length) {
       list.innerHTML = '<div class="combo-empty">Market data still loading…</div>';
     } else if (!coins.length) {
-      list.innerHTML = '<div class="combo-empty">No match in the top 100 coins.</div>';
+      list.innerHTML = '<div class="combo-empty">No match in the top 250 coins.</div>';
     } else {
       list.innerHTML = coins.map(c =>
         '<button type="button" class="combo-opt" data-id="' + esc(c.id) + '">'
@@ -1773,7 +1773,7 @@ const Portfolio = (() => {
       + (c ? '<img src="' + esc(c.image) + '" alt="" width="24" height="24">' : '')
       + '<span class="coin-name">' + esc(c ? c.name : h.coinId) + '</span>'
       + '<span class="coin-sym">' + esc(sym) + '</span>'
-      + (c ? '' : ' <span class="muted">(outside top 100 — no live price)</span>')
+      + (c ? '' : ' <span class="muted">(outside top 250 — no live price)</span>')
       + '</div></td>'
       + '<td class="num">' + fmtUSD(price) + '</td>'
       + '<td class="num col-1h">' + pctSpan(c ? c.price_change_percentage_1h_in_currency : null) + '</td>'
