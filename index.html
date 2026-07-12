@@ -644,7 +644,7 @@ th.sorted-desc::after { content: " ▼"; color: var(--accent); }
   cursor: pointer;
 }
 .gallery-thumb-wrap { position: relative; aspect-ratio: 4 / 3; overflow: hidden; background: var(--bg-3); }
-.gallery-thumb-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gallery-thumb-wrap img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .gallery-card-title {
   position: absolute;
   left: 0;
@@ -703,7 +703,7 @@ th.sorted-desc::after { content: " ▼"; color: var(--accent); }
   border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--bg-3);
-  object-fit: cover;
+  object-fit: contain;
   display: none;
 }
 .gallery-modal-preview.shown { display: block; }
