@@ -531,6 +531,16 @@ th.sorted-desc::after { content: " ▼"; color: var(--accent); }
 .btn.primary:hover { filter: brightness(1.1); }
 .btn.danger:hover { border-color: var(--red); color: var(--red); }
 .btn.small { padding: 4px 10px; font-size: 12px; }
+.btn:disabled { opacity: 0.4; cursor: default; border-color: var(--border); }
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 14px;
+}
+.pagination-info { color: var(--muted); font-size: 13px; white-space: nowrap; }
 
 .combo { position: relative; }
 .combo-list {
@@ -1008,6 +1018,11 @@ th.sorted-desc::after { content: " ▼"; color: var(--accent); }
           <tr><td colspan="9" class="loading-cell">Loading market data…</td></tr>
         </tbody>
       </table>
+    </div>
+    <div class="pagination hidden" id="market-pagination">
+      <button class="btn" id="market-prev">← Previous</button>
+      <span class="pagination-info" id="market-page-info"></span>
+      <button class="btn" id="market-next">Next →</button>
     </div>
   </section>
 
@@ -1520,6 +1535,8 @@ const Market = (() => {
   let sortKey = 'market_cap_rank';
   let sortDir = 1;
   let query = '';
+  let page = 1;
+  const PAGE_SIZE = 200;
 
   function sortValue(coin, key) {
     if (PCT_KEYS[key]) return coin[PCT_KEYS[key]];
@@ -1593,6 +1610,14 @@ const Market = (() => {
     chgEl.className = 'stat-value ' + (chg == null ? '' : chg >= 0 ? 'up' : 'down');
   }
 
+  function renderPagination(pageNum, totalPages) {
+    const el = document.getElementById('market-pagination');
+    document.getElementById('market-page-info').textContent = 'Page ' + pageNum + ' of ' + totalPages;
+    document.getElementById('market-prev').disabled = pageNum <= 1;
+    document.getElementById('market-next').disabled = pageNum >= totalPages;
+    el.classList.toggle('hidden', totalPages <= 1);
+  }
+
   function render() {
     if (!state.markets || !state.markets.length) return;
     renderStats();
@@ -1605,9 +1630,15 @@ const Market = (() => {
     }
     if (!list.length) {
       body.innerHTML = '<tr><td colspan="9" class="loading-cell">No coins match your search.</td></tr>';
+      document.getElementById('market-pagination').classList.add('hidden');
       return;
     }
-    body.innerHTML = sorted(list).map(rowHTML).join('');
+    const full = sorted(list);
+    const totalPages = Math.max(1, Math.ceil(full.length / PAGE_SIZE));
+    page = Math.min(Math.max(page, 1), totalPages);
+    const start = (page - 1) * PAGE_SIZE;
+    body.innerHTML = full.slice(start, start + PAGE_SIZE).map(rowHTML).join('');
+    renderPagination(page, totalPages);
   }
 
   function onHeaderClick(th) {
@@ -1622,7 +1653,12 @@ const Market = (() => {
     document.querySelectorAll('#market-table th').forEach(h =>
       h.classList.remove('sorted-asc', 'sorted-desc'));
     th.classList.add(sortDir === 1 ? 'sorted-asc' : 'sorted-desc');
+    page = 1;
     render();
+  }
+
+  function scrollToTableTop() {
+    document.getElementById('market-table').scrollIntoView({ block: 'start', behavior: 'smooth' });
   }
 
   function init() {
@@ -1632,6 +1668,7 @@ const Market = (() => {
     });
     document.getElementById('market-search').addEventListener('input', e => {
       query = e.target.value.trim();
+      page = 1;
       render();
     });
     document.getElementById('market-body').addEventListener('click', e => {
@@ -1639,6 +1676,17 @@ const Market = (() => {
       if (!tr) return;
       const coin = state.markets.find(c => c.id === tr.dataset.id);
       if (coin) showCoinModal(coin);
+    });
+    document.getElementById('market-prev').addEventListener('click', () => {
+      if (page <= 1) return;
+      page--;
+      render();
+      scrollToTableTop();
+    });
+    document.getElementById('market-next').addEventListener('click', () => {
+      page++;
+      render();
+      scrollToTableTop();
     });
   }
 
