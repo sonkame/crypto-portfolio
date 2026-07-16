@@ -67,20 +67,61 @@ On each `wheel` event:
 Each animation frame, for every target with non-negligible velocity:
 
 1. Apply the velocity to the target's scroll position (`scrollTop` for an
-   element, or the page's scroll for `document.scrollingElement`), clamped
-   so it can never scroll past the container's valid range (0 to
-   `scrollHeight - clientHeight`).
-2. Multiply the velocity by a friction constant (< 1) to decay it.
+   element, or the page's scroll for `document.scrollingElement`), scaled
+   by the real elapsed time since the previous frame (`performance.now()`
+   delta), clamped so it can never scroll past the container's valid
+   range (0 to `scrollHeight - clientHeight`).
+2. Decay the velocity by a time-based factor (see Tuning below) rather
+   than a fixed per-callback multiplier, so the coast takes the same
+   *time* regardless of the display's refresh rate.
 3. Once `Math.abs(velocity)` drops below a small threshold, stop the loop
    and remove the target from the `Map`.
 
-## Tuning
+## Tuning (measured from a reference video, not guessed)
 
-The friction constant is picked so a coast lasts roughly 300-500ms after
-the last wheel tick — "keeps going for a little bit," not an aggressive
-multi-second slide. This is a single named constant in the module, easy
-to adjust after trying it in the browser if it feels too strong or too
-subtle.
+The user supplied a reference screencast (`Screencast from 2026-07-16
+14-33-45.webm`, a private-jet-charter marketing site with a Lenis/GSAP-
+style premium scroll feel). Rather than eyeball it, every consecutive
+frame pair was cross-correlated (row-profile shift matching, via a small
+Python/Pillow/numpy script — `ffmpeg` extracted 250 frames at 30fps) to
+get an actual measured vertical-scroll-pixels-per-frame curve across all
+9 distinct scroll gestures in the clip. Findings:
+
+- **Coast duration scales with flick strength** — a small flick decays to
+  near-zero in ~5-10 frames (~150-300ms at 30fps), the largest flick in
+  the clip (peak ~64px/frame at the analysis scale, several hundred real
+  screen pixels in a single 33ms frame) takes ~15-25 frames (~500-800ms)
+  to fully settle. This confirms a velocity/friction (momentum) model is
+  the right one — it's exactly what makes coast distance/duration scale
+  with input strength — rather than a fixed-duration ease-to-target
+  model, which would show the same settle time regardless of flick size.
+- Fitting an exponential decay to the cleanest (largest, best
+  signal-to-noise) gesture gives an estimated **velocity half-life of
+  roughly 120ms**.
+
+**Concrete parameters:**
+
+- Decay MUST be time-based (`velocity *= Math.pow(FRICTION_PER_SECOND,
+  dtSeconds)` using real elapsed time between animation frames from
+  `performance.now()`), not a fixed multiplier applied once per
+  `requestAnimationFrame` callback. The latter is a common bug: it decays
+  faster on a high-refresh-rate display (more callbacks/second) than a
+  60Hz one, so the exact same flick would coast for a visibly shorter
+  *time* on a 144Hz monitor. Time-based decay feels identical regardless
+  of the display's refresh rate.
+- `FRICTION_PER_SECOND ≈ 0.003` (i.e., if velocity were left completely
+  unfed for a full second, it would already be at 0.3% of its start
+  value) — derived from the measured ~120ms half-life:
+  `0.5 = FRICTION_PER_SECOND^0.12`, solved for `FRICTION_PER_SECOND`.
+- The wheel-delta-to-velocity scaling constant should be generous enough
+  that a normal firm scroll produces a visually pronounced glide matching
+  the reference's energetic feel, not a barely-noticeable one — tuned by
+  trying it in the browser against the reference video side-by-side
+  during implementation, since the reference's exact pixel scale doesn't
+  map 1:1 onto arbitrary wheel-event `deltaY` units across browsers/OSes/
+  mouse-acceleration-settings.
+- These are still named constants, not hardcoded magic numbers inline —
+  easy to nudge further after trying it if it still doesn't feel right.
 
 ## Known trade-off: trackpad double-momentum
 
