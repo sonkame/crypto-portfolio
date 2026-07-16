@@ -37,6 +37,13 @@ body {
   overflow-x: hidden;
 }
 
+/* Smooth-scrolls the main page plus every internally-scrollable panel
+   (modals, coin detail popup, search dropdown). Respects the OS/browser
+   reduced-motion setting rather than forcing it on everyone. */
+@media (prefers-reduced-motion: no-preference) {
+  html, .modal, .combo-list, .side-panel, .sp-body { scroll-behavior: smooth; }
+}
+
 button { font-family: inherit; }
 h2, h3 { margin: 0; }
 
