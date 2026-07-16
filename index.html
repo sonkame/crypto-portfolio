@@ -1092,6 +1092,7 @@ th.sorted-desc::after { content: " ▼"; color: var(--accent); }
               <th class="num">#</th><th>Coin</th><th class="num">Price</th>
               <th class="num col-1h">1h</th><th class="num">24h</th><th class="num col-7d">7d</th>
               <th class="num col-vol">24h Volume</th><th class="num col-mcap">Market Cap</th>
+              <th class="num col-tsupply">Total Supply</th><th class="num col-msupply">Max Supply</th>
               <th class="col-spark">Last 7 Days</th>
               <th class="num">▼ Holdings</th><th class="num">PNL</th><th class="num">Actions</th>
             </tr>
@@ -2045,6 +2046,8 @@ const Portfolio = (() => {
       + '<td class="num col-7d">' + pctSpan(c ? c.price_change_percentage_7d_in_currency : null) + '</td>'
       + '<td class="num col-vol">' + fmtCompact(c ? c.total_volume : null) + '</td>'
       + '<td class="num col-mcap">' + fmtCompact(c ? c.market_cap : null) + '</td>'
+      + '<td class="num col-tsupply">' + fmtSupply(c ? c.total_supply : null) + '</td>'
+      + '<td class="num col-msupply">' + (c && c.max_supply != null ? fmtSupply(c.max_supply) : (c ? '∞' : '—')) + '</td>'
       + '<td class="col-spark">' + sparklineSVG(c) + '</td>'
       + '<td class="num"><div class="cell-main">' + (value != null ? fmtCompactPrecise(value) : '—') + '</div>'
       + '<div class="cell-sub">' + h.amount.toLocaleString('en-US', { maximumFractionDigits: 8 }) + ' ' + esc(sym) + '</div></td>'
