@@ -951,7 +951,7 @@ th.sorted-desc::after { content: " ▼"; color: var(--accent); }
   .an-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 900px) {
-  .col-vol, .col-1h { display: none; }
+  .col-vol, .col-1h, .col-tsupply, .col-msupply { display: none; }
 }
 @media (max-width: 640px) {
   .col-spark { display: none; }
@@ -1010,12 +1010,14 @@ th.sorted-desc::after { content: " ▼"; color: var(--accent); }
             <th data-key="p24h" class="num sortable">24h</th>
             <th data-key="p7d" class="num sortable col-7d">7d</th>
             <th data-key="market_cap" class="num sortable col-mcap">Market Cap</th>
+            <th data-key="total_supply" class="num sortable col-tsupply">Total Supply</th>
+            <th data-key="max_supply" class="num sortable col-msupply">Max Supply</th>
             <th data-key="total_volume" class="num sortable col-vol">Volume (24h)</th>
             <th class="col-spark">Last 7 Days</th>
           </tr>
         </thead>
         <tbody id="market-body">
-          <tr><td colspan="9" class="loading-cell">Loading market data…</td></tr>
+          <tr><td colspan="11" class="loading-cell">Loading market data…</td></tr>
         </tbody>
       </table>
     </div>
@@ -1392,6 +1394,8 @@ const API = (() => {
         price_change_percentage_24h_in_currency: pct24h,
         price_change_percentage_7d_in_currency: c.price_change_7D_percent,
         total_volume: c.volume_24_usd,
+        total_supply: c.total_supply,
+        max_supply: c.max_supply,
         sparkline_in_7d: undefined,
         high_24h: undefined,
         low_24h: undefined,
@@ -1592,6 +1596,8 @@ const Market = (() => {
       + pctCell(c.price_change_percentage_24h_in_currency)
       + pctCell(c.price_change_percentage_7d_in_currency, 'col-7d')
       + '<td class="num col-mcap">' + fmtCompact(c.market_cap) + '</td>'
+      + '<td class="num col-tsupply">' + fmtSupply(c.total_supply) + '</td>'
+      + '<td class="num col-msupply">' + (c.max_supply != null ? fmtSupply(c.max_supply) : '∞') + '</td>'
       + '<td class="num col-vol">' + fmtCompact(c.total_volume) + '</td>'
       + '<td class="col-spark">' + sparklineSVG(c) + '</td>'
       + '</tr>';
@@ -1629,7 +1635,7 @@ const Market = (() => {
         (c.name || '').toLowerCase().includes(q) || (c.symbol || '').toLowerCase().includes(q));
     }
     if (!list.length) {
-      body.innerHTML = '<tr><td colspan="9" class="loading-cell">No coins match your search.</td></tr>';
+      body.innerHTML = '<tr><td colspan="11" class="loading-cell">No coins match your search.</td></tr>';
       document.getElementById('market-pagination').classList.add('hidden');
       return;
     }
@@ -3275,6 +3281,16 @@ function fmtCompact(n) {
   if (abs >= 1e6)  return sign + '$' + (abs / 1e6).toFixed(2)  + 'M';
   if (abs >= 1e3)  return sign + '$' + (abs / 1e3).toFixed(2)  + 'K';
   return sign + '$' + abs.toFixed(2);
+}
+
+function fmtSupply(n) {
+  if (n == null || isNaN(n)) return '—';
+  const abs = Math.abs(n);
+  if (abs >= 1e12) return (abs / 1e12).toFixed(2) + 'T';
+  if (abs >= 1e9)  return (abs / 1e9).toFixed(2)  + 'B';
+  if (abs >= 1e6)  return (abs / 1e6).toFixed(2)  + 'M';
+  if (abs >= 1e3)  return (abs / 1e3).toFixed(2)  + 'K';
+  return abs.toFixed(0);
 }
 
 function fmtPct(n) {
