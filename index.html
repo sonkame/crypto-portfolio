@@ -3255,6 +3255,112 @@ const Gallery = (() => {
 </script>
 
 <script>
+/* ==================== momentum.js ====================
+   Adds a short momentum/coast after releasing the mouse wheel. Native
+   wheel scrolling has no inertia for a physical mouse wheel — only
+   trackpads get that, from the OS, before the page ever sees it. Hand-
+   rolled (no library) to keep this project's zero-external-JS-dependency
+   property. Tuning constants come from cross-correlating frames of a
+   user-supplied reference video, not a guess — see
+   docs/superpowers/specs/2026-07-16-momentum-scroll-design.md. */
+const MomentumScroll = (() => {
+  const FRICTION_PER_SECOND = 0.003; // velocity multiplier if left unfed for a full second (~120ms half-life, measured)
+  const DELTA_TO_VELOCITY = 25;      // wheel deltaY -> px/second velocity; starting point, tune by feel against the reference video
+  const MAX_VELOCITY = 9000;         // px/second cap so one huge flick can't launch an absurd coast
+  const STOP_THRESHOLD = 15;         // px/second below which a coast is considered finished
+
+  const targets = new Map(); // scrollable element (or the page) -> { velocity: px/second, lastTime: ms }
+
+  function isScrollable(el) {
+    if (!(el instanceof Element)) return false;
+    const style = getComputedStyle(el);
+    const canScrollY = style.overflowY === 'auto' || style.overflowY === 'scroll';
+    return canScrollY && el.scrollHeight > el.clientHeight;
+  }
+
+  /* Walks up from the wheel event's target to the nearest scrollable
+     ancestor. Generically covers any open .modal, .side-panel, or
+     .combo-list without hardcoding those class names, plus the main
+     page as the fallback when nothing else matches. */
+  function resolveTarget(e) {
+    let el = e.target;
+    while (el && el !== document.body) {
+      if (isScrollable(el)) return el;
+      el = el.parentElement;
+    }
+    return document.scrollingElement || document.documentElement;
+  }
+
+  function isPageTarget(target) {
+    return target === document.scrollingElement || target === document.documentElement;
+  }
+
+  function scrollRange(target) {
+    const max = isPageTarget(target)
+      ? document.documentElement.scrollHeight - window.innerHeight
+      : target.scrollHeight - target.clientHeight;
+    return Math.max(0, max);
+  }
+
+  function currentTop(target) {
+    return isPageTarget(target) ? window.scrollY : target.scrollTop;
+  }
+
+  function setTop(target, top) {
+    if (isPageTarget(target)) window.scrollTo(0, top);
+    else target.scrollTop = top;
+  }
+
+  function step(target, now) {
+    const state = targets.get(target);
+    if (!state) return;
+    const dtSeconds = Math.max(0, (now - state.lastTime) / 1000);
+    state.lastTime = now;
+
+    const max = scrollRange(target);
+    const top = Math.min(Math.max(currentTop(target) + state.velocity * dtSeconds, 0), max);
+    setTop(target, top);
+
+    state.velocity *= Math.pow(FRICTION_PER_SECOND, dtSeconds);
+
+    if (Math.abs(state.velocity) < STOP_THRESHOLD || max <= 0) {
+      targets.delete(target);
+      return;
+    }
+    requestAnimationFrame(t => step(target, t));
+  }
+
+  function onWheel(e) {
+    if (e.ctrlKey) return; // pinch-zoom gesture - never intercept
+    const target = resolveTarget(e);
+    if (scrollRange(target) <= 0) return; // nothing to scroll here, let the event pass through
+
+    e.preventDefault();
+
+    let state = targets.get(target);
+    const isNewCoast = !state;
+    if (isNewCoast) {
+      state = { velocity: 0, lastTime: performance.now() };
+      targets.set(target, state);
+    }
+    state.velocity += e.deltaY * DELTA_TO_VELOCITY;
+    state.velocity = Math.max(-MAX_VELOCITY, Math.min(MAX_VELOCITY, state.velocity));
+
+    if (isNewCoast) {
+      requestAnimationFrame(t => step(target, t));
+    }
+  }
+
+  function init() {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    document.addEventListener('wheel', onWheel, { passive: false });
+  }
+
+  return { init };
+})();
+</script>
+
+<script>
 /* ==================== app.js ====================
    App shell: shared state + formatters, view switching, refresh loop, coin side panel. */
 const state = { markets: [], global: null, updatedAt: 0, stale: false };
@@ -3624,6 +3730,7 @@ document.addEventListener('DOMContentLoaded', () => {
   Bubbles.init();
   CoinPanel.init();
   Gallery.init();
+  MomentumScroll.init();
 
   document.querySelectorAll('.tab').forEach(t =>
     t.addEventListener('click', () => switchView(t.dataset.view)));
