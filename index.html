@@ -926,6 +926,16 @@ th.sorted-desc::after { content: " ▼"; color: var(--accent); }
   .sp-chart-wrap { min-height: 240px; }
 }
 
+/* ---------- Footer ---------- */
+.site-footer {
+  text-align: center;
+  padding: 16px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.site-footer a { color: var(--muted); }
+.site-footer a:hover { color: var(--text); }
+
 /* ---------- Responsive ---------- */
 @media (max-width: 1000px) {
   .an-grid { grid-template-columns: 1fr; }
@@ -1077,6 +1087,7 @@ th.sorted-desc::after { content: " ▼"; color: var(--accent); }
     <!-- ANALYTICS PANEL -->
     <div class="pf-panel" id="pf-panel-analytics">
       <p id="an-empty" class="empty hidden">Add coins to this portfolio to see analytics.</p>
+      <p class="an-cat-note muted hidden" id="an-history-note"></p>
       <div class="an-grid" id="an-grid">
         <div class="an-card">
           <div class="an-card-head">
@@ -1140,6 +1151,8 @@ th.sorted-desc::after { content: " ▼"; color: var(--accent); }
     <div class="gallery-grid hidden" id="gallery-grid"></div>
   </section>
 </main>
+
+<footer class="site-footer">Market data for coins beyond rank 250 provided by <a href="https://coincodex.com" target="_blank" rel="noopener">CoinCodex</a>, used under CC BY-NC 4.0.</footer>
 
 <!-- COIN DETAIL POPUP (two-column: sidebar + chart, like CryptoBubbles) -->
 <div id="coin-panel" class="side-panel" role="dialog" aria-modal="true">
@@ -1296,9 +1309,16 @@ const API = (() => {
   const MARKETS_URL = BASE + '/coins/markets?vs_currency=usd&order=market_cap_desc'
     + '&per_page=250&page=1&sparkline=true&price_change_percentage=1h%2C24h%2C7d';
   const GLOBAL_URL = BASE + '/global';
+  /* Fills the long tail beyond CoinGecko's top 250 so the app shows 1200+
+     coins total. Verified live: independent domain/rate-limit from
+     CoinGecko, keyless, CORS-open. Licensed CC BY-NC 4.0 — non-commercial
+     use with attribution (see the page footer). docs: coincodex.com/page/api */
+  const COINCODEX_URL = 'https://coincodex.com/api/v1/assets/get_asset_list'
+    + '?limit=1500&offset=1&type=crypto&order_by=last_market_cap_usd&order_direction=desc';
   const CACHE_MARKETS = 'cryptofolio.cache.markets';
   const CACHE_GLOBAL = 'cryptofolio.cache.global';
   const MAX_BACKOFF = 10 * 60 * 1000;
+  const TARGET_TOTAL_COINS = 1300; // CoinGecko's 250 + a CoinCodex long tail, comfortably over the 1200 target
 
   let backoffUntil = 0;
   let failures = 0;
@@ -1311,6 +1331,65 @@ const API = (() => {
       throw err;
     }
     return res.json();
+  }
+
+  /* CoinCodex coins are tagged _source:'coincodex' and lack sparkline/ATH/
+     high-low/chart history; every place that reads them already renders
+     missing fields as '—' or skips gracefully (CoinPanel/Analytics). Dedup
+     checks symbol, slug/id, AND normalized name against CoinGecko's set
+     (CoinGecko wins collisions — it has full chart/category support).
+     Symbol alone isn't enough: CoinCodex disambiguates ITS OWN internal
+     symbol collisions by appending a digit (Hyperliquid's "hype" becomes
+     "HYPE8", Bittensor's "tao" becomes "TAO2", etc.), which silently
+     defeats symbol-only matching even though the slug is identical. Slug
+     alone isn't enough either: some coins have genuinely different slugs
+     per provider for the same coin (CoinGecko's "bitcoin-cash-sv" vs
+     CoinCodex's "bitcoin-sv") but an identical display name — confirmed
+     live, combined ~3% of entries across both patterns. Ranks are
+     recomputed across the combined list since CoinCodex's own rank
+     numbering doesn't interleave with CoinGecko's. */
+  function mergeCoinCodexTail(geckoMarkets, coincodexList) {
+    const normName = s => (s || '').toLowerCase().trim().replace(/\s+/g, ' ');
+    const existingSymbols = new Set(geckoMarkets.map(c => (c.symbol || '').toLowerCase()));
+    const existingIds = new Set(geckoMarkets.map(c => (c.id || '').toLowerCase()));
+    const existingNames = new Set(geckoMarkets.map(c => normName(c.name)));
+    const need = TARGET_TOTAL_COINS - geckoMarkets.length;
+    const tail = [];
+    for (const c of coincodexList) {
+      if (tail.length >= need) break;
+      const sym = (c.symbol || '').toLowerCase();
+      const slug = (c.slug || '').toLowerCase();
+      const name = normName(c.name);
+      if (!sym || existingSymbols.has(sym) || (slug && existingIds.has(slug)) || existingNames.has(name)) continue;
+      existingSymbols.add(sym);
+      const pct24h = c.price_change_1D_percent;
+      tail.push({
+        id: 'cc:' + c.slug,
+        symbol: c.symbol,
+        name: c.name,
+        image: undefined,
+        current_price: c.last_price_usd,
+        market_cap: c.last_market_cap_usd,
+        market_cap_rank: null, // recomputed below
+        price_change_24h: (c.last_price_usd != null && pct24h != null)
+          ? c.last_price_usd * (pct24h / 100) / (1 + pct24h / 100) : null,
+        price_change_percentage_1h_in_currency: c.price_change_1H_percent,
+        price_change_percentage_24h_in_currency: pct24h,
+        price_change_percentage_7d_in_currency: c.price_change_7D_percent,
+        total_volume: c.volume_24_usd,
+        sparkline_in_7d: undefined,
+        high_24h: undefined,
+        low_24h: undefined,
+        ath: undefined,
+        ath_change_percentage: undefined,
+        _source: 'coincodex',
+      });
+    }
+
+    const combined = geckoMarkets.concat(tail);
+    combined.sort((a, b) => (b.market_cap || 0) - (a.market_cap || 0));
+    combined.forEach((c, i) => { c.market_cap_rank = i + 1; });
+    return combined;
   }
 
   function readCache(key) {
@@ -1342,9 +1421,21 @@ const API = (() => {
       ]);
       failures = 0;
       backoffUntil = 0;
-      writeCache(CACHE_MARKETS, markets);
+
+      const tagged = markets.map(c => ({ ...c, _source: 'coingecko' }));
+      let combined = tagged;
+      try {
+        const coincodex = await getJSON(COINCODEX_URL);
+        combined = mergeCoinCodexTail(tagged, coincodex.data || []);
+      } catch (e) {
+        // Independent domain/rate-limit from CoinGecko — a CoinCodex hiccup
+        // just means no long tail this cycle, not a failed refresh overall.
+        console.warn('CoinCodex long-tail fetch failed (' + e.message + '), showing CoinGecko coins only this cycle');
+      }
+
+      writeCache(CACHE_MARKETS, combined);
       writeCache(CACHE_GLOBAL, globalRes.data);
-      return { markets, global: globalRes.data, fromCache: false, updatedAt: Date.now() };
+      return { markets: combined, global: globalRes.data, fromCache: false, updatedAt: Date.now() };
     } catch (e) {
       failures++;
       const wait = Math.min(MAX_BACKOFF, 60 * 1000 * Math.pow(2, failures - 1));
@@ -1476,7 +1567,7 @@ const Market = (() => {
   function rowHTML(c) {
     return '<tr data-id="' + esc(c.id) + '">'
       + '<td class="num muted">' + (c.market_cap_rank ?? '—') + '</td>'
-      + '<td><div class="coin-cell"><img src="' + esc(c.image) + '" alt="" loading="lazy" width="24" height="24">'
+      + '<td><div class="coin-cell"><img src="' + esc(c.image || BLANK_IMG) + '" alt="" loading="lazy" width="24" height="24">'
       + '<span class="coin-name">' + esc(c.name) + '</span>'
       + '<span class="coin-sym">' + esc((c.symbol || '').toUpperCase()) + '</span></div></td>'
       + '<td class="num">' + fmtUSD(c.current_price) + '</td>'
@@ -1662,7 +1753,7 @@ const Portfolio = (() => {
     } else {
       list.innerHTML = coins.map(c =>
         '<button type="button" class="combo-opt" data-id="' + esc(c.id) + '">'
-        + '<img src="' + esc(c.image) + '" alt="">'
+        + '<img src="' + esc(c.image || BLANK_IMG) + '" alt="">'
         + '<span>' + esc(c.name) + '</span>'
         + '<span class="sym">' + esc((c.symbol || '').toUpperCase()) + '</span></button>'
       ).join('');
@@ -1755,7 +1846,7 @@ const Portfolio = (() => {
     list.innerHTML = p.holdings.map(h => {
       const c = coinById(h.coinId);
       return '<div class="rm-row">'
-        + (c ? '<img src="' + esc(c.image) + '" alt="" width="24" height="24">' : '')
+        + (c ? '<img src="' + esc(c.image || BLANK_IMG) + '" alt="" width="24" height="24">' : '')
         + '<span class="coin-name">' + esc(c ? c.name : h.coinId) + '</span>'
         + '<span class="coin-sym">' + h.amount.toLocaleString('en-US', { maximumFractionDigits: 8 })
         + ' ' + esc(c ? c.symbol.toUpperCase() : '') + '</span>'
@@ -1889,7 +1980,7 @@ const Portfolio = (() => {
     return '<tr data-id="' + esc(h.coinId) + '">'
       + '<td class="num muted">' + (c ? (c.market_cap_rank ?? '—') : '—') + '</td>'
       + '<td><div class="coin-cell">'
-      + (c ? '<img src="' + esc(c.image) + '" alt="" width="24" height="24">' : '')
+      + (c ? '<img src="' + esc(c.image || BLANK_IMG) + '" alt="" width="24" height="24">' : '')
       + '<span class="coin-name">' + esc(c ? c.name : h.coinId) + '</span>'
       + '<span class="coin-sym">' + esc(sym) + '</span>'
       + (c ? '' : ' <span class="muted">(outside top 250 — no live price)</span>')
@@ -1963,7 +2054,7 @@ const Portfolio = (() => {
     const topEl = document.getElementById('pf-top-coin');
     const topChgEl = document.getElementById('pf-top-chg');
     if (top) {
-      topEl.innerHTML = '<img src="' + esc(top.coin.image) + '" alt="" width="22" height="22"> '
+      topEl.innerHTML = '<img src="' + esc(top.coin.image || BLANK_IMG) + '" alt="" width="22" height="22"> '
         + esc(top.coin.name) + ' <span class="coin-sym">' + esc(top.coin.symbol.toUpperCase()) + '</span>';
       topChgEl.innerHTML = '<span class="' + signedCls(top.chg) + '">' + signedUSD(top.chg) + '</span>';
     } else {
@@ -2188,7 +2279,18 @@ const Analytics = (() => {
     let cost = 0;
 
     for (const h of holdings) {
-      const prices = await API.fetchMarketChart(h.coinId, days); // paced by the API queue
+      // Chart history is keyed by CoinGecko's own coin-id scheme, so coins
+      // sourced from the CoinCodex long tail (or any single fetch failure)
+      // are excluded from this series rather than aborting the whole chart
+      // for every other coin the user holds.
+      const coin = (state.markets || []).find(c => c.id === h.coinId);
+      if (coin && coin._source && coin._source !== 'coingecko') continue;
+      let prices;
+      try {
+        prices = await API.fetchMarketChart(h.coinId, days); // paced by the API queue
+      } catch (e) {
+        continue;
+      }
       if (!prices || prices.length < 2) continue;
       const sampled = resample(prices, grid);
       for (let i = 0; i < GRID_POINTS; i++) values[i] += h.amount * sampled[i];
@@ -2355,16 +2457,21 @@ const Analytics = (() => {
     note.textContent = 'Loading categories…';
 
     const catValue = {};
-    try {
-      for (const e of entries) {
+    for (const e of entries) {
+      // Categories are keyed by CoinGecko's own coin-id scheme, so coins
+      // sourced from the CoinCodex long tail (or any single fetch failure)
+      // are excluded rather than aborting the whole panel for every other
+      // held coin.
+      const coin = (state.markets || []).find(c => c.id === e.coinId);
+      if (coin && coin._source && coin._source !== 'coingecko') continue;
+      try {
         const cats = await API.fetchCategories(e.coinId); // cached a week per coin
         if (token !== tokens.cats) return;
         for (const cat of cats) catValue[cat] = (catValue[cat] || 0) + e.value;
+      } catch (err) {
+        if (token !== tokens.cats) return;
+        // keep going — one coin's failure shouldn't blank the whole panel
       }
-    } catch (err) {
-      if (token !== tokens.cats) return;
-      note.textContent = 'Couldn’t load categories (rate limit?) — they’ll load next time you open this tab.';
-      return;
     }
 
     const cats = Object.entries(catValue)
@@ -2393,23 +2500,37 @@ const Analytics = (() => {
 
     const empty = document.getElementById('an-empty');
     const grid = document.getElementById('an-grid');
+    const historyNote = document.getElementById('an-history-note');
     const entries = [];
     let total = 0;
+    let noHistoryCount = 0;
     for (const h of holdings) {
       const c = (state.markets || []).find(x => x.id === h.coinId);
       if (!c || c.current_price == null) continue;
       const value = h.amount * c.current_price;
       total += value;
       entries.push({ coinId: h.coinId, label: c.name, value });
+      if (c._source && c._source !== 'coingecko') noHistoryCount++;
     }
 
     if (!holdings.length || !entries.length || total <= 0) {
       empty.classList.remove('hidden');
       grid.classList.add('hidden');
+      historyNote.classList.add('hidden');
       return;
     }
     empty.classList.add('hidden');
     grid.classList.remove('hidden');
+
+    if (noHistoryCount > 0) {
+      historyNote.textContent = noHistoryCount + ' coin' + (noHistoryCount > 1 ? 's' : '')
+        + (noHistoryCount > 1 ? " don't" : " doesn't")
+        + " have historical chart/category data and " + (noHistoryCount > 1 ? 'are' : 'is')
+        + " excluded from Performance, P&L, and Category Allocation above.";
+      historyNote.classList.remove('hidden');
+    } else {
+      historyNote.classList.add('hidden');
+    }
 
     renderDonut(entries, total);
     renderChart('perf', perfDays);
@@ -3077,6 +3198,13 @@ const state = { markets: [], global: null, updatedAt: 0, stale: false };
 const VIEWS = ['market', 'portfolio', 'bubbles', 'gallery'];
 const REFRESH_MS = 60 * 1000;
 
+/* Coins beyond CoinGecko's top 250 (the CoinCodex long tail — see
+   mergeCoinCodexTail in api.js) have no logo. A literal src="" is NOT
+   blank: browsers resolve an empty src against the current page URL and
+   try to decode the page itself as an image, showing a broken-image icon.
+   This tiny transparent pixel decodes cleanly with no network request. */
+const BLANK_IMG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4AWJiYGBgAAAAAP//XRcpzQAAAAZJREFUAwAADwADJDd96QAAAABJRU5ErkJggg==';
+
 /* ----- shared formatters ----- */
 
 function esc(s) {
@@ -3259,7 +3387,7 @@ const CoinPanel = (() => {
   function open(coin) {
     activeCoin = coin;
 
-    document.getElementById('cp-logo').src = coin.image || '';
+    document.getElementById('cp-logo').src = coin.image || BLANK_IMG;
     document.getElementById('cp-name').textContent = coin.name;
     document.getElementById('cp-sym').textContent = (coin.symbol || '').toUpperCase();
     document.getElementById('cp-rank').textContent = 'Rank #' + (coin.market_cap_rank ?? '—');
@@ -3308,7 +3436,16 @@ const CoinPanel = (() => {
     document.getElementById('panel-backdrop').classList.add('open');
     document.body.style.overflow = 'hidden';
 
-    loadChart(1, null); // 1D default
+    // Chart history is keyed by CoinGecko's own coin-id scheme, so it's not
+    // available for coins sourced from the CoinCodex long tail — skip the
+    // guaranteed-404 fetch rather than let it fail silently into the same
+    // message used for real (transient) failures.
+    if (coin._source && coin._source !== 'coingecko') {
+      document.getElementById('cp-chart-loading').textContent = 'Chart history isn’t available for this coin';
+      document.getElementById('cp-chart-loading').classList.remove('done');
+    } else {
+      loadChart(1, null); // 1D default
+    }
   }
 
   function close() {
@@ -3375,10 +3512,12 @@ function updateStatus() {
   el.classList.toggle('stale', state.stale);
 }
 
+const BUBBLES_MAX_COINS = 250; // keeps the O(n²) collision loop smooth with 1200+ coins in state.markets
+
 function renderAll() {
   Market.render();
   Portfolio.render();
-  Bubbles.update(state.markets);
+  Bubbles.update((state.markets || []).slice(0, BUBBLES_MAX_COINS));
 }
 
 function applyResult(r) {
