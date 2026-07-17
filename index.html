@@ -3278,6 +3278,8 @@ const MomentumScroll = (() => {
   const MAX_VELOCITY = 6000;         // px/second cap - a hard, sustained flick, not a light scroll
   const STOP_THRESHOLD = 5;          // px/second below which a coast is considered finished
 
+  window.__momentumConstants = { FRICTION_PER_SECOND, DELTA_TO_VELOCITY, MAX_VELOCITY, STOP_THRESHOLD }; // TEMPORARY debug hook
+
   const targets = new Map(); // scrollable element (or the page) -> { velocity: px/second, lastTime: ms }
 
   function isScrollable(el) {
