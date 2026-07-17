@@ -183,7 +183,7 @@ input:focus { border-color: var(--accent); }
 }
 .data-table { width: 100%; border-collapse: collapse; min-width: 640px; }
 .data-table th, .data-table td {
-  padding: 10px 12px;
+  padding: 10px 8px;
   border-bottom: 1px solid var(--border);
   text-align: left;
   white-space: nowrap;
@@ -210,8 +210,20 @@ th.sorted-desc::after { content: " ▼"; color: var(--accent); }
 .loading-cell { text-align: center; color: var(--muted); padding: 32px !important; }
 
 .coin-cell { display: flex; align-items: center; gap: 8px; }
-.coin-cell img { width: 24px; height: 24px; border-radius: 50%; }
-.coin-name { font-weight: 600; }
+.coin-cell img { width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0; }
+/* Capped so a handful of very long names (tokenized-fund entries like
+   "Insurance Short Duration US Government Securities Fund") don't force
+   the whole Coin column - and therefore the whole table - far wider than
+   every other row needs. Truncates with an ellipsis instead. */
+.coin-name {
+  font-weight: 600;
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+  vertical-align: middle;
+}
 .coin-sym { color: var(--muted); font-size: 12px; }
 
 .spark { width: 120px; height: 36px; display: block; }
