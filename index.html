@@ -3264,10 +3264,10 @@ const Gallery = (() => {
    user-supplied reference video, not a guess — see
    docs/superpowers/specs/2026-07-16-momentum-scroll-design.md. */
 const MomentumScroll = (() => {
-  const FRICTION_PER_SECOND = 0.003; // velocity multiplier if left unfed for a full second (~120ms half-life, measured)
+  const FRICTION_PER_SECOND = 0.1;   // velocity multiplier if left unfed for a full second (~300ms half-life); raised from the original 120ms video-measured value after live feedback that a fast decay reads as an abrupt jump-then-stop rather than a glide
   const DELTA_TO_VELOCITY = 45;      // wheel deltaY -> px/second velocity; raised from 25 after user feedback that the coast felt slow
   const MAX_VELOCITY = 14000;        // px/second cap so one huge flick can't launch an absurd coast; raised alongside DELTA_TO_VELOCITY so strong flicks scale too
-  const STOP_THRESHOLD = 15;         // px/second below which a coast is considered finished
+  const STOP_THRESHOLD = 5;          // px/second below which a coast is considered finished; lowered from 15 so the tail fades out rather than cutting off while still visibly moving
 
   const targets = new Map(); // scrollable element (or the page) -> { velocity: px/second, lastTime: ms }
 
