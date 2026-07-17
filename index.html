@@ -3336,6 +3336,21 @@ const MomentumScroll = (() => {
     requestAnimationFrame(t => step(target, t));
   }
 
+  /* deltaY's unit depends on deltaMode - never assume pixels (MDN is
+     explicit about this). Chrome normalizes to DOM_DELTA_PIXEL for a
+     standard mouse, but Firefox commonly reports DOM_DELTA_LINE with small
+     integer deltaY (e.g. 1-3 per notch) on Linux. Treating that as raw
+     pixels under-fed velocity so little that a coast decayed to nothing
+     within a frame or two - indistinguishable from "no coast at all",
+     which is exactly the "moves then stops dead" bug report. 40px/line
+     matches the standard cross-browser normalization used by d3-zoom and
+     Facebook's normalizeWheel.js. */
+  function normalizeDeltaY(e) {
+    if (e.deltaMode === 1) return e.deltaY * 40;
+    if (e.deltaMode === 2) return e.deltaY * window.innerHeight;
+    return e.deltaY;
+  }
+
   function onWheel(e) {
     if (e.ctrlKey) return; // pinch-zoom gesture - never intercept
     const target = resolveTarget(e);
@@ -3349,7 +3364,7 @@ const MomentumScroll = (() => {
       state = { velocity: 0, lastTime: performance.now() };
       targets.set(target, state);
     }
-    state.velocity += e.deltaY * DELTA_TO_VELOCITY;
+    state.velocity += normalizeDeltaY(e) * DELTA_TO_VELOCITY;
     state.velocity = Math.max(-MAX_VELOCITY, Math.min(MAX_VELOCITY, state.velocity));
 
     if (isNewCoast) {
