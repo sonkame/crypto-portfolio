@@ -3302,8 +3302,16 @@ const MomentumScroll = (() => {
     return Math.max(0, max);
   }
 
+  // Always read the same property setTop() writes (target.scrollTop), never
+  // window.scrollY for the page case. Per spec they should always agree,
+  // but live debugging showed window.scrollY lagging far behind what was
+  // actually being written to scrollTop, growing at a fraction of the real
+  // rate (and sometimes freezing outright) - so each frame's displacement
+  // was computed from a stale "current position", corrupting the physics.
+  // Reading and writing the exact same property removes any chance of the
+  // two disagreeing, regardless of why they did on that page.
   function currentTop(target) {
-    return isPageTarget(target) ? window.scrollY : target.scrollTop;
+    return target.scrollTop;
   }
 
   function setTop(target, top) {
@@ -3317,7 +3325,14 @@ const MomentumScroll = (() => {
     target.scrollTop = top;
   }
 
-  window.__momentumDebug = []; // TEMPORARY - remove once the "moves then stops" bug is diagnosed
+  /* state.top is the coast's own authoritative position, updated purely by
+     the physics below - never re-read from the DOM mid-coast. Debugging
+     showed target.scrollTop (and window.scrollY) lagging well behind what
+     had actually just been written on the very next animation frame,
+     sometimes freezing for several frames outright, so recomputing each
+     frame's displacement from a fresh readback was corrupting the whole
+     trajectory. The DOM is only read once, when a coast starts (onWheel),
+     to know where to begin - after that it's write-only. */
   function step(target, now) {
     const state = targets.get(target);
     if (!state) return;
@@ -3325,22 +3340,13 @@ const MomentumScroll = (() => {
     state.lastTime = now;
 
     const max = scrollRange(target);
-    const before = currentTop(target);
-    const top = Math.min(Math.max(before + state.velocity * dtSeconds, 0), max);
+    const top = Math.min(Math.max(state.top + state.velocity * dtSeconds, 0), max);
     setTop(target, top);
+    state.top = top;
 
-    const velocityBefore = state.velocity;
     state.velocity *= Math.pow(FRICTION_PER_SECOND, dtSeconds);
 
-    window.__momentumDebug.push({
-      now: Math.round(now), dtMs: Math.round(dtSeconds * 1000),
-      velocityBefore: Math.round(velocityBefore), velocityAfter: Math.round(state.velocity),
-      before: Math.round(before * 10) / 10, top: Math.round(top * 10) / 10, max,
-      actuallyMoved: Math.round((top - before) * 10) / 10,
-    });
-
     if (Math.abs(state.velocity) < STOP_THRESHOLD || max <= 0) {
-      window.__momentumDebug.push({ STOPPED: true, finalVelocity: Math.round(state.velocity), max });
       targets.delete(target);
       return;
     }
@@ -3372,7 +3378,7 @@ const MomentumScroll = (() => {
     let state = targets.get(target);
     const isNewCoast = !state;
     if (isNewCoast) {
-      state = { velocity: 0, lastTime: performance.now() };
+      state = { velocity: 0, lastTime: performance.now(), top: currentTop(target) };
       targets.set(target, state);
     }
     state.velocity += normalizeDeltaY(e) * DELTA_TO_VELOCITY;
