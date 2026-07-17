@@ -3700,7 +3700,14 @@ function switchView(name) {
     t.classList.toggle('active', t.dataset.view === name));
   if (name === 'bubbles') Bubbles.start();
   else Bubbles.stop();
-  if (location.hash !== '#' + name) history.replaceState(null, '', '#' + name);
+  // Purely cosmetic (keeps the URL bar/back-button in sync with the active
+  // tab) - opened via file://, Chrome's cross-origin navigation check
+  // misfires on replaceState and logs a console error even though nothing
+  // is actually broken. Swallow it rather than let a cosmetic failure show
+  // as a red error.
+  if (location.hash !== '#' + name) {
+    try { history.replaceState(null, '', '#' + name); } catch (err) { /* file:// origin quirk, safe to ignore */ }
+  }
 }
 
 /* ----- data refresh ----- */
