@@ -3273,14 +3273,27 @@ const MomentumScroll = (() => {
   // now-correct physics: total coast distance is roughly
   // velocity / -ln(FRICTION_PER_SECOND), so a moderate flick should add a
   // noticeable but bounded glide, not cover the whole page.
-  const FRICTION_PER_SECOND = 0.02;  // ~177ms velocity half-life
-  const DELTA_TO_VELOCITY = 12;      // wheel deltaY -> px/second velocity
-  const MAX_VELOCITY = 6000;         // px/second cap - a hard, sustained flick, not a light scroll
-  const STOP_THRESHOLD = 5;          // px/second below which a coast is considered finished
+  // The 177ms half-life (raised from the original 120ms video measurement
+  // to fix an "abrupt stop" complaint) turned out to be treating a symptom
+  // of the position-tracking bug, not a real tuning problem - once that bug
+  // was fixed, the longer half-life combined with gesture compounding (see
+  // RESET_GAP_MS below) let coasts run for over a second and travel far
+  // more than intended. Back to close to the original measured value.
+  const FRICTION_PER_SECOND = 0.003; // ~120ms velocity half-life
+  const DELTA_TO_VELOCITY = 5;       // wheel deltaY -> px/second velocity
+  const MAX_VELOCITY = 3000;         // px/second cap - a hard, sustained flick, not a light scroll
+  const STOP_THRESHOLD = 30;         // px/second below which a coast is considered finished
+  // If it's been longer than this since the last wheel tick, treat the next
+  // one as a new gesture rather than adding to whatever's left of the old
+  // one. Debugging showed a coast lingering above STOP_THRESHOLD for
+  // hundreds of milliseconds after becoming visually imperceptible, long
+  // enough that an unrelated, later scroll would silently inherit its
+  // leftover velocity and compound into a much bigger, less predictable
+  // result. A real continuous scroll never has gaps this long between
+  // ticks, so this only ever kicks in between genuinely separate gestures.
+  const RESET_GAP_MS = 150;
 
-  window.__momentumConstants = { FRICTION_PER_SECOND, DELTA_TO_VELOCITY, MAX_VELOCITY, STOP_THRESHOLD }; // TEMPORARY debug hook
-
-  const targets = new Map(); // scrollable element (or the page) -> { velocity: px/second, lastTime: ms }
+  const targets = new Map(); // scrollable element (or the page) -> { velocity: px/second, lastTime: ms, lastWheelTime: ms }
 
   function isScrollable(el) {
     if (!(el instanceof Element)) return false;
@@ -3344,7 +3357,6 @@ const MomentumScroll = (() => {
      frame's displacement from a fresh readback was corrupting the whole
      trajectory. The DOM is only read once, when a coast starts (onWheel),
      to know where to begin - after that it's write-only. */
-  window.__momentumDebug2 = []; // TEMPORARY - remove once diagnosed
   function step(target, now) {
     const state = targets.get(target);
     if (!state) return;
@@ -3356,20 +3368,9 @@ const MomentumScroll = (() => {
     setTop(target, top);
     state.top = top;
 
-    const velocityBefore = state.velocity;
     state.velocity *= Math.pow(FRICTION_PER_SECOND, dtSeconds);
 
-    const bucket = Math.floor(now / 100);
-    if (state._lastLoggedBucket !== bucket) {
-      state._lastLoggedBucket = bucket;
-      window.__momentumDebug2.push({
-        now: Math.round(now), dtMs: Math.round(dtSeconds * 1000),
-        velocityBefore: Math.round(velocityBefore), velocityAfter: Math.round(state.velocity), top: Math.round(top),
-      });
-    }
-
     if (Math.abs(state.velocity) < STOP_THRESHOLD || max <= 0) {
-      window.__momentumDebug2.push({ now: Math.round(now), STOPPED: true, finalVelocity: Math.round(state.velocity) });
       targets.delete(target);
       return;
     }
@@ -3398,16 +3399,26 @@ const MomentumScroll = (() => {
 
     e.preventDefault();
 
+    const now = performance.now();
     let state = targets.get(target);
     const isNewCoast = !state;
     if (isNewCoast) {
-      state = { velocity: 0, lastTime: performance.now(), top: currentTop(target) };
+      state = { velocity: 0, lastTime: now, lastWheelTime: now, top: currentTop(target) };
       targets.set(target, state);
+    } else if (now - state.lastWheelTime > RESET_GAP_MS) {
+      // Long enough since the last tick that this reads as a new, separate
+      // gesture rather than a continuation - start clean rather than
+      // adding to whatever's left of the previous coast. state.top is left
+      // alone: it's already kept in sync by the running step() loop, and
+      // re-reading target.scrollTop here risks the same stale-readback
+      // problem the position-tracking fix eliminated.
+      state.velocity = 0;
+      state.lastTime = now;
     }
+    state.lastWheelTime = now;
+
     state.velocity += normalizeDeltaY(e) * DELTA_TO_VELOCITY;
     state.velocity = Math.max(-MAX_VELOCITY, Math.min(MAX_VELOCITY, state.velocity));
-
-    window.__momentumDebug2.push({ now: Math.round(performance.now()), WHEEL: true, deltaY: e.deltaY, isNewCoast, velocityAfter: Math.round(state.velocity) });
 
     if (isNewCoast) {
       requestAnimationFrame(t => step(target, t));
