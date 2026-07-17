@@ -3264,10 +3264,19 @@ const Gallery = (() => {
    user-supplied reference video, not a guess — see
    docs/superpowers/specs/2026-07-16-momentum-scroll-design.md. */
 const MomentumScroll = (() => {
-  const FRICTION_PER_SECOND = 0.1;   // velocity multiplier if left unfed for a full second (~300ms half-life); raised from the original 120ms video-measured value after live feedback that a fast decay reads as an abrupt jump-then-stop rather than a glide
-  const DELTA_TO_VELOCITY = 45;      // wheel deltaY -> px/second velocity; raised from 25 after user feedback that the coast felt slow
-  const MAX_VELOCITY = 14000;        // px/second cap so one huge flick can't launch an absurd coast; raised alongside DELTA_TO_VELOCITY so strong flicks scale too
-  const STOP_THRESHOLD = 5;          // px/second below which a coast is considered finished; lowered from 15 so the tail fades out rather than cutting off while still visibly moving
+  // All four of these were tuned while a since-fixed bug was silently
+  // truncating every coast to a few dozen pixels (step() was corrupting its
+  // own position each frame - see the position-tracking fix). Every prior
+  // "make it faster / less abrupt" adjustment was really just fighting that
+  // truncation, so once it was fixed the same constants launched a small
+  // flick to the far edge of the page. Re-tuned from scratch against the
+  // now-correct physics: total coast distance is roughly
+  // velocity / -ln(FRICTION_PER_SECOND), so a moderate flick should add a
+  // noticeable but bounded glide, not cover the whole page.
+  const FRICTION_PER_SECOND = 0.02;  // ~177ms velocity half-life
+  const DELTA_TO_VELOCITY = 12;      // wheel deltaY -> px/second velocity
+  const MAX_VELOCITY = 6000;         // px/second cap - a hard, sustained flick, not a light scroll
+  const STOP_THRESHOLD = 5;          // px/second below which a coast is considered finished
 
   const targets = new Map(); // scrollable element (or the page) -> { velocity: px/second, lastTime: ms }
 
