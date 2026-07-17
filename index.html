@@ -3344,6 +3344,7 @@ const MomentumScroll = (() => {
      frame's displacement from a fresh readback was corrupting the whole
      trajectory. The DOM is only read once, when a coast starts (onWheel),
      to know where to begin - after that it's write-only. */
+  window.__momentumDebug2 = []; // TEMPORARY - remove once diagnosed
   function step(target, now) {
     const state = targets.get(target);
     if (!state) return;
@@ -3355,9 +3356,20 @@ const MomentumScroll = (() => {
     setTop(target, top);
     state.top = top;
 
+    const velocityBefore = state.velocity;
     state.velocity *= Math.pow(FRICTION_PER_SECOND, dtSeconds);
 
+    const bucket = Math.floor(now / 100);
+    if (state._lastLoggedBucket !== bucket) {
+      state._lastLoggedBucket = bucket;
+      window.__momentumDebug2.push({
+        now: Math.round(now), dtMs: Math.round(dtSeconds * 1000),
+        velocityBefore: Math.round(velocityBefore), velocityAfter: Math.round(state.velocity), top: Math.round(top),
+      });
+    }
+
     if (Math.abs(state.velocity) < STOP_THRESHOLD || max <= 0) {
+      window.__momentumDebug2.push({ now: Math.round(now), STOPPED: true, finalVelocity: Math.round(state.velocity) });
       targets.delete(target);
       return;
     }
@@ -3394,6 +3406,8 @@ const MomentumScroll = (() => {
     }
     state.velocity += normalizeDeltaY(e) * DELTA_TO_VELOCITY;
     state.velocity = Math.max(-MAX_VELOCITY, Math.min(MAX_VELOCITY, state.velocity));
+
+    window.__momentumDebug2.push({ now: Math.round(performance.now()), WHEEL: true, deltaY: e.deltaY, isNewCoast, velocityAfter: Math.round(state.velocity) });
 
     if (isNewCoast) {
       requestAnimationFrame(t => step(target, t));
