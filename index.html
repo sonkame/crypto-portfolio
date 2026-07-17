@@ -3265,8 +3265,8 @@ const Gallery = (() => {
    docs/superpowers/specs/2026-07-16-momentum-scroll-design.md. */
 const MomentumScroll = (() => {
   const FRICTION_PER_SECOND = 0.003; // velocity multiplier if left unfed for a full second (~120ms half-life, measured)
-  const DELTA_TO_VELOCITY = 25;      // wheel deltaY -> px/second velocity; starting point, tune by feel against the reference video
-  const MAX_VELOCITY = 9000;         // px/second cap so one huge flick can't launch an absurd coast
+  const DELTA_TO_VELOCITY = 45;      // wheel deltaY -> px/second velocity; raised from 25 after user feedback that the coast felt slow
+  const MAX_VELOCITY = 14000;        // px/second cap so one huge flick can't launch an absurd coast; raised alongside DELTA_TO_VELOCITY so strong flicks scale too
   const STOP_THRESHOLD = 15;         // px/second below which a coast is considered finished
 
   const targets = new Map(); // scrollable element (or the page) -> { velocity: px/second, lastTime: ms }
@@ -3307,8 +3307,14 @@ const MomentumScroll = (() => {
   }
 
   function setTop(target, top) {
-    if (isPageTarget(target)) window.scrollTo(0, top);
-    else target.scrollTop = top;
+    // Direct property assignment, never scrollTo(): this site's own
+    // scroll-behavior:smooth CSS intercepts scrollTo()/scroll()/scrollBy()
+    // and re-eases every call, and this runs once per animation frame —
+    // each new frame's call was cancelling the browser's own easing of the
+    // previous one before it could visibly progress, reading as laggy/stuck.
+    // scrollTop assignment bypasses scroll-behavior entirely, so the physics
+    // in step() is the only thing easing the motion, as intended.
+    target.scrollTop = top;
   }
 
   function step(target, now) {
