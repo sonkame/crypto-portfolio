@@ -3317,6 +3317,7 @@ const MomentumScroll = (() => {
     target.scrollTop = top;
   }
 
+  window.__momentumDebug = []; // TEMPORARY - remove once the "moves then stops" bug is diagnosed
   function step(target, now) {
     const state = targets.get(target);
     if (!state) return;
@@ -3324,12 +3325,22 @@ const MomentumScroll = (() => {
     state.lastTime = now;
 
     const max = scrollRange(target);
-    const top = Math.min(Math.max(currentTop(target) + state.velocity * dtSeconds, 0), max);
+    const before = currentTop(target);
+    const top = Math.min(Math.max(before + state.velocity * dtSeconds, 0), max);
     setTop(target, top);
 
+    const velocityBefore = state.velocity;
     state.velocity *= Math.pow(FRICTION_PER_SECOND, dtSeconds);
 
+    window.__momentumDebug.push({
+      now: Math.round(now), dtMs: Math.round(dtSeconds * 1000),
+      velocityBefore: Math.round(velocityBefore), velocityAfter: Math.round(state.velocity),
+      before: Math.round(before * 10) / 10, top: Math.round(top * 10) / 10, max,
+      actuallyMoved: Math.round((top - before) * 10) / 10,
+    });
+
     if (Math.abs(state.velocity) < STOP_THRESHOLD || max <= 0) {
+      window.__momentumDebug.push({ STOPPED: true, finalVelocity: Math.round(state.velocity), max });
       targets.delete(target);
       return;
     }
