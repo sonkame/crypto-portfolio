@@ -36,12 +36,25 @@ body {
   min-height: 100vh;
   overflow-x: hidden;
 }
+/* ScrollSmoother's required wrapper/content structure. The wrapper acts as
+   the fixed viewport clipping the transformed content (per GSAP's docs);
+   the flex/min-height that used to keep the footer pinned to the bottom of
+   a short page moves onto #smooth-content, since header/main/footer are now
+   its children rather than body's direct children. */
+#smooth-wrapper { overflow: hidden; }
+#smooth-content { display: flex; flex-direction: column; min-height: 100vh; }
 
-/* Smooth-scrolls the main page plus every internally-scrollable panel
-   (modals, coin detail popup, search dropdown). Respects the OS/browser
-   reduced-motion setting rather than forcing it on everyone. */
+/* Smooth-scrolls every internally-scrollable panel (modals, coin detail
+   popup, search dropdown) - these sit outside ScrollSmoother's wrapper, so
+   they still use native scrolling for their own scrollIntoView calls.
+   html is deliberately excluded: ScrollSmoother now owns page scrolling via
+   its own scrollTo(), and CSS scroll-behavior:smooth would re-ease every
+   one of those calls on top of ScrollSmoother's own easing (the same
+   double-smoothing conflict a hand-rolled scroll feature hit earlier).
+   Respects the OS/browser reduced-motion setting rather than forcing it on
+   everyone. */
 @media (prefers-reduced-motion: no-preference) {
-  html, .modal, .combo-list, .side-panel, .sp-body { scroll-behavior: smooth; }
+  .modal, .combo-list, .side-panel, .sp-body { scroll-behavior: smooth; }
 }
 
 button { font-family: inherit; }
@@ -979,6 +992,13 @@ th.sorted-desc::after { content: " ▼"; color: var(--accent); }
 </style>
 </head>
 <body>
+<!-- ScrollSmoother's required wrapper/content structure. Fixed-position
+     overlays (side panel, modals, backdrops, context menus) are deliberately
+     kept OUTSIDE this wrapper below - ScrollSmoother scrolls #smooth-content
+     via a CSS transform, and per the docs, position:fixed elements inside it
+     would end up fixed to the transformed content instead of the viewport. -->
+<div id="smooth-wrapper">
+<div id="smooth-content">
 <header class="site-header">
   <div class="header-inner">
     <div class="brand">🪙 Crypto<span>Folio</span></div>
@@ -1178,6 +1198,10 @@ th.sorted-desc::after { content: " ▼"; color: var(--accent); }
 </main>
 
 <footer class="site-footer">Market data for coins beyond rank 250 provided by <a href="https://coincodex.com" target="_blank" rel="noopener">CoinCodex</a>, used under CC BY-NC 4.0.</footer>
+</div>
+</div>
+<!-- /ScrollSmoother wrapper. Everything below is fixed-position UI kept
+     outside it on purpose (see the note above the opening wrapper). -->
 
 <!-- COIN DETAIL POPUP (two-column: sidebar + chart, like CryptoBubbles) -->
 <div id="coin-panel" class="side-panel" role="dialog" aria-modal="true">
@@ -1324,6 +1348,15 @@ th.sorted-desc::after { content: " ▼"; color: var(--accent); }
   <button data-gact="edit">✏️ Edit</button>
   <button data-gact="remove" class="danger">🗑 Delete</button>
 </div>
+
+<!-- GSAP + ScrollSmoother: the project's one external dependency, added
+     deliberately for a proven, tested smooth-scroll implementation rather
+     than continuing to hand-roll wheel physics. Free for commercial use
+     since April 2025 (Webflow's GreenSock acquisition). Versions pinned to
+     3.15.0, the current release as of this writing. -->
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/ScrollSmoother.min.js"></script>
 
 <script>
 /* ==================== api.js ====================
@@ -1645,6 +1678,7 @@ const Market = (() => {
     if (!list.length) {
       body.innerHTML = '<tr><td colspan="11" class="loading-cell">No coins match your search.</td></tr>';
       document.getElementById('market-pagination').classList.add('hidden');
+      ScrollTrigger.refresh(true); // table height just changed - keep ScrollSmoother's range in sync
       return;
     }
     const full = sorted(list);
@@ -1653,6 +1687,7 @@ const Market = (() => {
     const start = (page - 1) * PAGE_SIZE;
     body.innerHTML = full.slice(start, start + PAGE_SIZE).map(rowHTML).join('');
     renderPagination(page, totalPages);
+    ScrollTrigger.refresh(true); // table height just changed - keep ScrollSmoother's range in sync
   }
 
   function onHeaderClick(th) {
@@ -1672,7 +1707,11 @@ const Market = (() => {
   }
 
   function scrollToTableTop() {
-    document.getElementById('market-table').scrollIntoView({ block: 'start', behavior: 'smooth' });
+    // ScrollSmoother scrolls #smooth-content via a CSS transform, not real
+    // document scroll - native scrollIntoView() isn't guaranteed to line up
+    // with it (undocumented either way), so this uses ScrollSmoother's own
+    // scrollTo(), which is aware of that transform.
+    window.smoother.scrollTo(document.getElementById('market-table'), true, 'top top');
   }
 
   function init() {
@@ -2153,6 +2192,7 @@ const Portfolio = (() => {
     if (typeof Analytics !== 'undefined') {
       Analytics.notify(holdings, store.activeId, subTab === 'analytics');
     }
+    ScrollTrigger.refresh(true); // content height may have just changed
   }
 
   function switchSubTab(name) {
@@ -3209,12 +3249,14 @@ const Gallery = (() => {
       empty.classList.remove('hidden');
       grid.classList.add('hidden');
       grid.innerHTML = '';
+      ScrollTrigger.refresh(true);
       return;
     }
     empty.classList.add('hidden');
     grid.classList.remove('hidden');
     const sorted = [...entries].sort((a, b) => b.createdAt - a.createdAt);
     grid.innerHTML = sorted.map(cardHTML).join('');
+    ScrollTrigger.refresh(true);
   }
 
   /* ----- init ----- */
@@ -3581,6 +3623,7 @@ function switchView(name) {
   if (location.hash !== '#' + name) {
     try { history.replaceState(null, '', '#' + name); } catch (err) { /* file:// origin quirk, safe to ignore */ }
   }
+  ScrollTrigger.refresh(true); // switching views swaps in a very differently-sized .view block
 }
 
 /* ----- data refresh ----- */
@@ -3599,6 +3642,7 @@ function renderAll() {
   Market.render();
   Portfolio.render();
   Bubbles.update((state.markets || []).slice(0, BUBBLES_MAX_COINS));
+  ScrollTrigger.refresh(true); // covers Portfolio's render (Market already refreshes itself)
 }
 
 function applyResult(r) {
@@ -3625,6 +3669,9 @@ async function refresh() {
 /* ----- init ----- */
 
 document.addEventListener('DOMContentLoaded', () => {
+  gsap.registerPlugin(ScrollTrigger, ScrollSmoother);
+  window.smoother = ScrollSmoother.create({ smooth: 1 });
+
   Market.init();
   Portfolio.init();
   Analytics.init();
