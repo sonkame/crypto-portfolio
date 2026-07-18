@@ -293,6 +293,7 @@ th.sorted-desc::after { content: " ▼"; color: var(--accent); }
 .chip { padding: 1px 6px; font-size: 10px; }
 
 .pf-actions { display: flex; align-items: center; gap: 8px; }
+.pf-lang { background: var(--bg-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font: inherit; cursor: pointer; }
 .btn.icon { padding: 9px 13px; }
 .menu-wrap { position: relative; }
 .menu {
@@ -1100,7 +1101,7 @@ th.sorted-desc::after { content: " ▼"; color: var(--accent); }
     <!-- portfolio selector tabs -->
     <div class="pf-tabs-row">
       <div class="pf-tabs" id="pf-tabs"></div>
-      <button class="pf-tab pf-new" id="pf-new-btn">+ New Portfolio</button>
+      <button class="pf-tab pf-new" id="pf-new-btn" data-i18n="+ New Portfolio">+ New Portfolio</button>
     </div>
 
     <!-- title + actions -->
@@ -1111,8 +1112,8 @@ th.sorted-desc::after { content: " ▼"; color: var(--accent); }
         <span class="badge hidden" id="pf-default-badge">Default</span>
       </div>
       <div class="pf-actions" id="pf-actions">
-        <button class="btn" id="pf-add-btn">＋ Add coin</button>
-        <button class="btn" id="pf-remove-btn">− Remove coin</button>
+        <button class="btn" id="pf-add-btn">＋ <span data-i18n="Add coin">Add coin</span></button>
+        <button class="btn" id="pf-remove-btn">− <span data-i18n="Remove coin">Remove coin</span></button>
         <div class="menu-wrap">
           <button class="btn icon" id="pf-menu-btn" aria-label="Portfolio menu">⋮</button>
           <div class="menu hidden" id="pf-menu">
@@ -1121,37 +1122,46 @@ th.sorted-desc::after { content: " ▼"; color: var(--accent); }
           </div>
         </div>
       </div>
+      <select class="pf-lang" id="pf-lang" aria-label="Translate this page">
+        <option value="en">English</option>
+        <option value="es">Español</option>
+        <option value="fr">Français</option>
+        <option value="de">Deutsch</option>
+        <option value="it">Italiano</option>
+        <option value="pt">Português</option>
+        <option value="ja">日本語</option>
+      </select>
     </div>
 
     <!-- summary cards -->
     <div class="pf-summary">
       <div class="card">
         <span class="card-value" id="pf-total">$0.00</span>
-        <span class="card-label">Current Balance</span>
+        <span class="card-label" data-i18n="Current Balance">Current Balance</span>
       </div>
       <div class="card">
         <span class="card-value" id="pf-24h">—</span>
-        <span class="card-label">24h Portfolio Change <span id="pf-24h-pct"></span></span>
+        <span class="card-label"><span data-i18n="24h Portfolio Change">24h Portfolio Change</span> <span id="pf-24h-pct"></span></span>
       </div>
       <div class="card">
         <span class="card-value" id="pf-pl">—</span>
-        <span class="card-label">Total Profit / Loss <span id="pf-pl-pct"></span></span>
+        <span class="card-label"><span data-i18n="Total Profit / Loss">Total Profit / Loss</span> <span id="pf-pl-pct"></span></span>
       </div>
       <div class="card">
         <span class="card-value card-top-performer" id="pf-top-coin">—</span>
-        <span class="card-label">Top Performer <span class="chip">24H</span> <span id="pf-top-chg"></span></span>
+        <span class="card-label"><span data-i18n="Top Performer">Top Performer</span> <span class="chip">24H</span> <span id="pf-top-chg"></span></span>
       </div>
     </div>
 
     <!-- sub tabs -->
     <div class="pf-subtabs">
-      <button class="pf-subtab active" data-sub="coins">Coins</button>
-      <button class="pf-subtab" data-sub="analytics">✦ Analytics</button>
+      <button class="pf-subtab active" data-sub="coins"><span data-i18n="Coins">Coins</span></button>
+      <button class="pf-subtab" data-sub="analytics">✦ <span data-i18n="Analytics">Analytics</span></button>
     </div>
 
     <!-- COINS PANEL -->
     <div class="pf-panel active" id="pf-panel-coins">
-      <p id="pf-empty" class="empty">No holdings yet — click “＋ Add coin” to add your first coin.<br><small>Your portfolios are stored locally in this browser only.</small></p>
+      <p id="pf-empty" class="empty"><span data-i18n="No holdings yet — click “＋ Add coin” to add your first coin.">No holdings yet — click “＋ Add coin” to add your first coin.</span><br><small data-i18n="Your portfolios are stored locally in this browser only.">Your portfolios are stored locally in this browser only.</small></p>
       <div class="table-wrap">
         <table class="data-table hidden" id="pf-table">
           <thead>
@@ -2393,6 +2403,7 @@ const Portfolio = (() => {
       txPanel.classList.add('active');
       renderTxOverview(txCoinId);
       if (typeof ScrollTrigger !== 'undefined') ScrollTrigger.refresh(true);
+      if (typeof Translate !== 'undefined' && Translate.lang !== 'en') Translate.apply();
       return;
     }
     // normal state: ensure the overview panel is hidden and subtabs restored
@@ -2430,6 +2441,7 @@ const Portfolio = (() => {
       Analytics.notify(holdings, store.activeId, subTab === 'analytics');
     }
     ScrollTrigger.refresh(true); // content height may have just changed
+    if (typeof Translate !== 'undefined' && Translate.lang !== 'en') Translate.apply();
   }
 
   function renderTxOverview(coinId) {
@@ -3667,6 +3679,83 @@ const Gallery = (() => {
 </script>
 
 <script>
+/* ==================== translate.js ====================
+   Portfolio-page-only UI-label translation via MyMemory's free, keyless
+   REST API (https://api.mymemory.translated.net/get, CORS-open, verified).
+   Translates ONLY curated data-i18n label strings — never coin names,
+   numbers, or dates. Results cached in localStorage so repeat visits and
+   language switches stay far under the ~5000 char/day free quota. Requests
+   go through a small in-module serial queue so we never burst. */
+const Translate = (() => {
+  const LANG_KEY = 'cryptofolio.i18n.lang';
+  const cachePrefix = 'cryptofolio.i18n.';
+  let lang = localStorage.getItem(LANG_KEY) || 'en';
+  const originals = new WeakMap(); // node -> original English text
+  let quotaHit = false;
+
+  // tiny serial queue (own budget; independent of the CoinGecko queue)
+  let queue = Promise.resolve();
+  function enqueue(task) {
+    const p = queue.then(task, task);
+    queue = p.catch(() => {}).then(() => new Promise(r => setTimeout(r, 250)));
+    return p;
+  }
+
+  function cacheKey(l, text) { return cachePrefix + l + '.' + text; }
+
+  async function translateOne(text, l) {
+    const ck = cacheKey(l, text);
+    const hit = localStorage.getItem(ck);
+    if (hit !== null) return hit;
+    if (quotaHit) return text;
+    try {
+      const res = await enqueue(() => fetch(
+        'https://api.mymemory.translated.net/get?q=' + encodeURIComponent(text) + '&langpair=en|' + encodeURIComponent(l)
+      ).then(r => r.json()));
+      if (res && res.quotaFinished) { quotaHit = true; return text; }
+      const out = res && res.responseData && res.responseData.translatedText ? res.responseData.translatedText : text;
+      try { localStorage.setItem(ck, out); } catch (_) {}
+      return out;
+    } catch (_) {
+      return text; // network failure: leave English
+    }
+  }
+
+  async function apply() {
+    const nodes = document.querySelectorAll('#view-portfolio [data-i18n]');
+    nodes.forEach(n => { if (!originals.has(n)) originals.set(n, n.getAttribute('data-i18n')); });
+    if (lang === 'en') {
+      nodes.forEach(n => { n.textContent = originals.get(n); });
+      return;
+    }
+    for (const n of nodes) {
+      const en = originals.get(n);
+      const t = await translateOne(en, lang);
+      // node may have been re-rendered/removed during await; guard:
+      if (n.isConnected) n.textContent = t;
+    }
+  }
+
+  function setLang(l) {
+    lang = l;
+    localStorage.setItem(LANG_KEY, l);
+    apply();
+  }
+
+  function init() {
+    const sel = document.getElementById('pf-lang');
+    if (sel) {
+      sel.value = lang;
+      sel.addEventListener('change', () => setLang(sel.value));
+    }
+    if (lang !== 'en') apply();
+  }
+
+  return { init, apply, get lang() { return lang; } };
+})();
+</script>
+
+<script>
 /* ==================== app.js ====================
    App shell: shared state + formatters, view switching, refresh loop, coin side panel. */
 const state = { markets: [], global: null, updatedAt: 0, stale: false };
@@ -4048,6 +4137,7 @@ document.addEventListener('DOMContentLoaded', () => {
   Bubbles.init();
   CoinPanel.init();
   Gallery.init();
+  Translate.init();
 
   document.querySelectorAll('.tab').forEach(t =>
     t.addEventListener('click', () => switchView(t.dataset.view)));
