@@ -1777,14 +1777,64 @@ const Portfolio = (() => {
   let npMode = 'create';    // 'create' | 'rename' for the portfolio modal
   let npIcon = ICONS[0];
 
+  function genId() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  }
+
+  /* Pure: derive live amount + weighted-average net cost (fees folded in)
+     from a holding's transaction list. Buys raise the position and blend
+     the cost basis; sells lower it and realize P&L at the running avg cost;
+     transfers only move quantity (no price, no P&L). */
+  function deriveHolding(h) {
+    let amount = 0, avgCost = 0, realizedPnl = 0;
+    const txs = [...(h.transactions || [])].sort((a, b) => a.date - b.date);
+    for (const t of txs) {
+      if (t.type === 'buy') {
+        const newAmount = amount + t.quantity;
+        const addedCost = t.quantity * t.pricePerCoin + (t.fees || 0);
+        avgCost = newAmount > 0 ? (amount * avgCost + addedCost) / newAmount : 0;
+        amount = newAmount;
+      } else if (t.type === 'sell') {
+        const sellQty = Math.min(t.quantity, amount);
+        realizedPnl += (t.pricePerCoin - avgCost) * sellQty - (t.fees || 0);
+        amount -= sellQty;
+      } else if (t.type === 'transfer') {
+        amount += (t.direction === 'out' ? -t.quantity : t.quantity);
+        if (amount < 0) amount = 0;
+      }
+    }
+    return { coinId: h.coinId, transactions: h.transactions || [], amount, buyPrice: avgCost, realizedPnl };
+  }
+
   /* ----- storage ----- */
+
+  /* One-time upgrade: holdings stored as {coinId, amount, buyPrice} become
+     {coinId, transactions:[<one synthetic buy>]}. Idempotent — a holding
+     that already has a transactions array is left alone. */
+  function migrateStore(s) {
+    if (!s || !Array.isArray(s.portfolios)) return s;
+    for (const p of s.portfolios) {
+      if (!Array.isArray(p.holdings)) { p.holdings = []; continue; }
+      for (const h of p.holdings) {
+        if (Array.isArray(h.transactions)) continue;
+        const amt = typeof h.amount === 'number' ? h.amount : 0;
+        const price = typeof h.buyPrice === 'number' ? h.buyPrice : 0;
+        h.transactions = amt > 0
+          ? [{ id: genId(), type: 'buy', quantity: amt, pricePerCoin: price, fees: 0, date: Date.now(), notes: '' }]
+          : [];
+        delete h.amount;
+        delete h.buyPrice;
+      }
+    }
+    return s;
+  }
 
   function load() {
     try {
       const raw = localStorage.getItem(KEY);
       if (raw) {
         const s = JSON.parse(raw);
-        if (s && Array.isArray(s.portfolios) && s.portfolios.length) return s;
+        if (s && Array.isArray(s.portfolios) && s.portfolios.length) return migrateStore(s);
       }
     } catch {}
     // first run: migrate the old single-portfolio key if present
@@ -1794,10 +1844,10 @@ const Portfolio = (() => {
       const list = raw ? JSON.parse(raw) : [];
       if (Array.isArray(list)) legacy = list;
     } catch {}
-    return {
+    return migrateStore({
       activeId: 'default',
       portfolios: [{ id: 'default', name: 'My Portfolio', icon: '⭐', holdings: legacy }],
-    };
+    });
   }
 
   function save() {
@@ -1810,22 +1860,25 @@ const Portfolio = (() => {
     return store.portfolios.find(p => p.id === store.activeId) || null;
   }
 
-  /* Holdings of the active portfolio, or all portfolios merged for Overview. */
+  /* Holdings of the active portfolio (or all merged for Overview), each
+     derived to expose live .amount/.buyPrice/.realizedPnl for consumers. */
   function currentHoldings() {
     if (!isOverview()) {
       const p = activePortfolio();
-      return p ? p.holdings : [];
+      return p ? p.holdings.map(deriveHolding) : [];
     }
     const map = new Map();
     for (const p of store.portfolios) {
-      for (const h of p.holdings) {
+      for (const raw of p.holdings) {
+        const h = deriveHolding(raw);
         const m = map.get(h.coinId);
         if (m) {
           const cost = m.amount * m.buyPrice + h.amount * h.buyPrice;
           m.amount += h.amount;
           m.buyPrice = m.amount > 0 ? cost / m.amount : 0;
+          m.realizedPnl += h.realizedPnl;
         } else {
-          map.set(h.coinId, { coinId: h.coinId, amount: h.amount, buyPrice: h.buyPrice });
+          map.set(h.coinId, { coinId: h.coinId, amount: h.amount, buyPrice: h.buyPrice, realizedPnl: h.realizedPnl, transactions: h.transactions });
         }
       }
     }
@@ -1905,10 +1958,11 @@ const Portfolio = (() => {
       coinInput.disabled = true;
       if (edit) {
         editingId = coinId;
-        const h = p.holdings.find(x => x.coinId === coinId);
-        if (h) {
-          document.getElementById('pf-amount').value = h.amount;
-          document.getElementById('pf-buyprice').value = h.buyPrice;
+        const raw = p.holdings.find(x => x.coinId === coinId);
+        if (raw) {
+          const d = deriveHolding(raw);
+          document.getElementById('pf-amount').value = d.amount;
+          document.getElementById('pf-buyprice').value = d.buyPrice;
         }
       }
     }
@@ -1924,19 +1978,13 @@ const Portfolio = (() => {
     const buyPrice = parseFloat(document.getElementById('pf-buyprice').value);
     if (!selectedCoin || !(amount > 0) || !(buyPrice >= 0)) return;
 
+    let h = p.holdings.find(x => x.coinId === selectedCoin);
+    if (!h) { h = { coinId: selectedCoin, transactions: [] }; p.holdings.push(h); }
     if (editingId) {
-      const h = p.holdings.find(x => x.coinId === editingId);
-      if (h) { h.amount = amount; h.buyPrice = buyPrice; }
+      // "Edit holding" now means: reset this coin to a single buy reflecting the entered totals.
+      h.transactions = [{ id: genId(), type: 'buy', quantity: amount, pricePerCoin: buyPrice, fees: 0, date: Date.now(), notes: '' }];
     } else {
-      const existing = p.holdings.find(x => x.coinId === selectedCoin);
-      if (existing) {
-        // merging a repeat buy: weighted-average the cost basis
-        const total = existing.amount + amount;
-        existing.buyPrice = (existing.amount * existing.buyPrice + amount * buyPrice) / total;
-        existing.amount = total;
-      } else {
-        p.holdings.push({ coinId: selectedCoin, amount, buyPrice });
-      }
+      h.transactions.push({ id: genId(), type: 'buy', quantity: amount, pricePerCoin: buyPrice, fees: 0, date: Date.now(), notes: '' });
     }
     save();
     closeModals();
@@ -1956,7 +2004,7 @@ const Portfolio = (() => {
     const p = activePortfolio();
     const list = document.getElementById('rm-list');
     if (!p || !p.holdings.length) { closeModals(); return; }
-    list.innerHTML = p.holdings.map(h => {
+    list.innerHTML = p.holdings.map(deriveHolding).map(h => {
       const c = coinById(h.coinId);
       return '<div class="rm-row">'
         + (c ? '<img src="' + esc(c.image || BLANK_IMG) + '" alt="" width="24" height="24">' : '')
@@ -2321,6 +2369,7 @@ const Portfolio = (() => {
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModals(); });
 
     render();
+    save(); // persist any in-place migration from the old {amount,buyPrice} shape
   }
 
   function has(coinId) {
@@ -2360,7 +2409,11 @@ const Analytics = (() => {
   /* ----- data pipeline ----- */
 
   function holdingsKey() {
-    return portfolioId + '|' + holdings.map(h => h.coinId + ':' + h.amount + ':' + h.buyPrice).join(',');
+    return portfolioId + '|' + holdings.map(h =>
+      h.coinId + ':' + (h.transactions || []).map(t =>
+        t.type + t.quantity + ':' + t.pricePerCoin + ':' + (t.fees||0) + ':' + t.date + ':' + (t.direction||'')
+      ).join('~')
+    ).join(',');
   }
 
   /* Linear-interpolate [[ms, price], ...] onto a uniform time grid. */
