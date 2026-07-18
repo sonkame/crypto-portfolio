@@ -161,7 +161,7 @@ main:has(> #view-bubbles.active) {
 
 /* ---------- Controls ---------- */
 .controls { margin-bottom: 12px; }
-input[type="search"], input[type="number"], input[type="text"], .combo input {
+input[type="search"], input[type="number"], input[type="text"], input[type="datetime-local"], .combo input {
   background: var(--bg-2);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -171,6 +171,7 @@ input[type="search"], input[type="number"], input[type="text"], .combo input {
   outline: none;
   width: 100%;
 }
+input[type="datetime-local"] { color-scheme: dark; }
 input:focus { border-color: var(--accent); }
 #market-search { max-width: 320px; }
 
@@ -392,6 +393,14 @@ th.sorted-desc::after { content: " ▼"; color: var(--accent); }
 .tx-type.buy { color: var(--green, #16c784); }
 .tx-type.sell { color: var(--red, #ea3943); }
 .tx-type.transfer { color: var(--muted); }
+
+.tx-tabs { display: flex; gap: 4px; margin-bottom: 14px; border-bottom: 1px solid var(--border); }
+.tx-tab { flex: 1; background: none; border: none; border-bottom: 2px solid transparent; color: var(--muted); padding: 8px 0; cursor: pointer; font: inherit; }
+.tx-tab.active { color: var(--text); border-bottom-color: var(--lime, #16c784); }
+.tx-field-row { display: flex; gap: 8px; align-items: center; }
+.tx-usemkt { white-space: nowrap; background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
+.tx-usemkt:hover { color: var(--text); }
+.tx-error { color: var(--red, #ea3943); font-size: 13px; margin: 0; }
 
 .cell-main { font-weight: 600; }
 .cell-sub { font-size: 12px; color: var(--muted); }
@@ -1306,15 +1315,33 @@ th.sorted-desc::after { content: " ▼"; color: var(--accent); }
 <!-- ADD / EDIT TRANSACTION MODAL -->
 <div class="modal" id="tx-modal" role="dialog" aria-modal="true">
   <button class="modal-close" data-close aria-label="Close">×</button>
-  <h3 id="tx-title">Add Coin</h3>
+  <h3 id="tx-title">Add Transaction</h3>
+  <div class="tx-tabs" id="tx-tabs">
+    <button type="button" class="tx-tab active" data-txtype="buy">Buy</button>
+    <button type="button" class="tx-tab" data-txtype="sell">Sell</button>
+    <button type="button" class="tx-tab" data-txtype="transfer">Transfer</button>
+  </div>
   <form id="pf-form" class="tx-form" autocomplete="off">
     <div class="combo">
       <input id="pf-coin" placeholder="Search coin…" aria-label="Coin">
       <div id="pf-coin-list" class="combo-list hidden"></div>
     </div>
-    <input id="pf-amount" type="number" min="0" step="any" placeholder="Amount" aria-label="Amount">
-    <input id="pf-buyprice" type="number" min="0" step="any" placeholder="Buy price (USD)" aria-label="Buy price in USD">
-    <button type="submit" id="pf-submit" class="btn cta">Add</button>
+    <div class="tx-field-row" id="tx-transfer-dir-row" style="display:none">
+      <label><input type="radio" name="tx-dir" value="in" checked> Transfer in</label>
+      <label><input type="radio" name="tx-dir" value="out"> Transfer out</label>
+    </div>
+    <input id="pf-amount" type="number" min="0" step="any" placeholder="Quantity" aria-label="Quantity">
+    <div class="tx-field-row" id="tx-price-row">
+      <input id="pf-buyprice" type="number" min="0" step="any" placeholder="Price per coin (USD)" aria-label="Price per coin in USD">
+      <button type="button" class="tx-usemkt" id="pf-usemkt">Use Market</button>
+    </div>
+    <input id="pf-date" type="datetime-local" aria-label="Date and time">
+    <div class="tx-field-row" id="tx-fees-row">
+      <input id="pf-fees" type="number" min="0" step="any" placeholder="Fees (USD, optional)" aria-label="Fees">
+    </div>
+    <input id="pf-notes" type="text" maxlength="140" placeholder="Notes (optional)" aria-label="Notes">
+    <p class="tx-error hidden" id="pf-tx-error"></p>
+    <button type="submit" id="pf-submit" class="btn cta">Add Transaction</button>
   </form>
 </div>
 
@@ -1804,6 +1831,8 @@ const Portfolio = (() => {
   let txCoinId = null;      // coinId whose Transaction Overview is open (null = normal Coins/Analytics view)
   let txPage = 1;
   const TX_PAGE_SIZE = 50;
+  let txType = 'buy';       // 'buy' | 'sell' | 'transfer' — active tab in the tx editor modal
+  let editingTxId = null;   // transaction id being edited in the tx editor modal (null = adding)
 
   function genId() {
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -2004,51 +2033,92 @@ const Portfolio = (() => {
 
   /* ----- add / edit transaction modal ----- */
 
-  function openTxModal(coinId, edit) {
+  function setTxType(type) {
+    txType = type;
+    document.querySelectorAll('#tx-tabs .tx-tab').forEach(b => b.classList.toggle('active', b.dataset.txtype === type));
+    document.getElementById('tx-price-row').style.display = type === 'transfer' ? 'none' : '';
+    document.getElementById('tx-fees-row').style.display = type === 'transfer' ? 'none' : '';
+    document.getElementById('tx-transfer-dir-row').style.display = type === 'transfer' ? '' : 'none';
+    document.getElementById('pf-submit').textContent = editingTxId ? 'Save Transaction' : 'Add Transaction';
+  }
+
+  function openTxEditor(coinId, txId) {
     const p = activePortfolio();
     if (!p) return;
-    selectedCoin = null;
-    editingId = null;
-    const coinInput = document.getElementById('pf-coin');
-    coinInput.disabled = false;
-    coinInput.value = '';
-    document.getElementById('pf-amount').value = '';
-    document.getElementById('pf-buyprice').value = '';
-    document.getElementById('tx-title').textContent = edit ? 'Edit Holding' : 'Add Coin';
-    document.getElementById('pf-submit').textContent = edit ? 'Update' : 'Add';
+    editingTxId = txId || null;
+    editingId = null; // legacy var no longer used for holdings
+    document.getElementById('pf-tx-error').classList.add('hidden');
+    document.getElementById('pf-form').reset();
+    document.getElementById('tx-title').textContent = txId ? 'Edit Transaction' : 'Add Transaction';
 
-    if (coinId) {
-      selectCoin(coinId);
-      coinInput.disabled = true;
-      if (edit) {
-        editingId = coinId;
-        const raw = p.holdings.find(x => x.coinId === coinId);
-        if (raw) {
-          const d = deriveHolding(raw);
-          document.getElementById('pf-amount').value = d.amount;
-          document.getElementById('pf-buyprice').value = d.buyPrice;
+    // default datetime = now (local)
+    const now = new Date(); now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    document.getElementById('pf-date').value = now.toISOString().slice(0, 16);
+
+    let type = 'buy';
+    if (coinId) { selectCoin(coinId); document.getElementById('pf-coin').disabled = true; }
+    else { document.getElementById('pf-coin').disabled = false; }
+
+    if (txId) {
+      const raw = p.holdings.find(x => x.coinId === coinId);
+      const t = raw && raw.transactions.find(x => x.id === txId);
+      if (t) {
+        type = t.type;
+        document.getElementById('pf-amount').value = t.quantity;
+        document.getElementById('pf-buyprice').value = t.pricePerCoin || '';
+        document.getElementById('pf-fees').value = t.fees || '';
+        document.getElementById('pf-notes').value = t.notes || '';
+        const d = new Date(t.date); d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+        document.getElementById('pf-date').value = d.toISOString().slice(0, 16);
+        if (t.type === 'transfer') {
+          const dir = document.querySelector('input[name="tx-dir"][value="' + (t.direction || 'in') + '"]');
+          if (dir) dir.checked = true;
         }
       }
     }
+    setTxType(type);
     openModal('tx-modal');
-    (coinId ? document.getElementById('pf-amount') : coinInput).focus();
   }
 
   function onSubmit(e) {
     e.preventDefault();
     const p = activePortfolio();
     if (!p) return;
-    const amount = parseFloat(document.getElementById('pf-amount').value);
-    const buyPrice = parseFloat(document.getElementById('pf-buyprice').value);
-    if (!selectedCoin || !(amount > 0) || !(buyPrice >= 0)) return;
+    const err = document.getElementById('pf-tx-error');
+    const coinId = selectedCoin;
+    const quantity = parseFloat(document.getElementById('pf-amount').value);
+    const pricePerCoin = txType === 'transfer' ? 0 : parseFloat(document.getElementById('pf-buyprice').value);
+    const fees = txType === 'transfer' ? 0 : (parseFloat(document.getElementById('pf-fees').value) || 0);
+    const notes = document.getElementById('pf-notes').value.trim();
+    const dateStr = document.getElementById('pf-date').value;
+    const date = dateStr ? new Date(dateStr).getTime() : Date.now();
+    const direction = txType === 'transfer'
+      ? (document.querySelector('input[name="tx-dir"]:checked') || {}).value || 'in'
+      : undefined;
 
-    let h = p.holdings.find(x => x.coinId === selectedCoin);
-    if (!h) { h = { coinId: selectedCoin, transactions: [] }; p.holdings.push(h); }
-    if (editingId) {
-      // "Edit holding" now means: reset this coin to a single buy reflecting the entered totals.
-      h.transactions = [{ id: genId(), type: 'buy', quantity: amount, pricePerCoin: buyPrice, fees: 0, date: Date.now(), notes: '' }];
+    function fail(msg) { err.textContent = msg; err.classList.remove('hidden'); }
+    if (!coinId) return fail('Pick a coin.');
+    if (!(quantity > 0)) return fail('Quantity must be greater than 0.');
+    if (txType !== 'transfer' && !(pricePerCoin >= 0)) return fail('Price must be 0 or more.');
+
+    let raw = p.holdings.find(x => x.coinId === coinId);
+    if (!raw) { raw = { coinId, transactions: [] }; p.holdings.push(raw); }
+
+    // reject a transfer-out / sell that exceeds current holdings (excluding the tx being edited)
+    if (txType === 'sell' || (txType === 'transfer' && direction === 'out')) {
+      const others = { coinId, transactions: raw.transactions.filter(t => t.id !== editingTxId) };
+      const held = deriveHolding(others).amount;
+      if (quantity > held + 1e-9) return fail('You only hold ' + held + ' — cannot ' + (txType === 'sell' ? 'sell' : 'transfer out') + ' ' + quantity + '.');
+    }
+
+    const tx = { id: editingTxId || genId(), type: txType, quantity, pricePerCoin, fees, date, notes };
+    if (direction) tx.direction = direction;
+
+    if (editingTxId) {
+      const i = raw.transactions.findIndex(t => t.id === editingTxId);
+      if (i >= 0) raw.transactions[i] = tx; else raw.transactions.push(tx);
     } else {
-      h.transactions.push({ id: genId(), type: 'buy', quantity: amount, pricePerCoin: buyPrice, fees: 0, date: Date.now(), notes: '' });
+      raw.transactions.push(tx);
     }
     save();
     closeModals();
@@ -2171,8 +2241,6 @@ const Portfolio = (() => {
     txCoinId = null;
     render();
   }
-
-  function openTxEditor(coinId, txId) { /* implemented in Task 4 */ }
 
   /* ----- rendering ----- */
 
@@ -2483,7 +2551,7 @@ const Portfolio = (() => {
     document.getElementById('pf-new-btn').addEventListener('click', openNewPortfolio);
 
     // head actions
-    document.getElementById('pf-add-btn').addEventListener('click', () => openTxModal(null, false));
+    document.getElementById('pf-add-btn').addEventListener('click', () => openTxEditor(null, null));
     document.getElementById('pf-remove-btn').addEventListener('click', openRemoveModal);
     document.getElementById('pf-menu-btn').addEventListener('click', e => {
       e.stopPropagation();
@@ -2515,13 +2583,20 @@ const Portfolio = (() => {
       if (opt) selectCoin(opt.dataset.id);
     });
     document.getElementById('pf-form').addEventListener('submit', onSubmit);
+    document.getElementById('tx-tabs').addEventListener('click', e => {
+      const b = e.target.closest('.tx-tab'); if (b) setTxType(b.dataset.txtype);
+    });
+    document.getElementById('pf-usemkt').addEventListener('click', () => {
+      const c = coinById(selectedCoin);
+      if (c && c.current_price != null) document.getElementById('pf-buyprice').value = c.current_price;
+    });
 
     // coins table row actions
     document.getElementById('pf-body').addEventListener('click', e => {
       const btn = e.target.closest('button[data-act]');
       if (btn) {
         e.stopPropagation();
-        if (btn.dataset.act === 'add') openTxModal(btn.dataset.id, false);
+        if (btn.dataset.act === 'add') openTxEditor(btn.dataset.id, null);
         else if (btn.dataset.act === 'menu') showRowMenu(btn, btn.dataset.id);
         return;
       }
