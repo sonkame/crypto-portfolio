@@ -1181,6 +1181,12 @@ th.sorted-desc::after { content: " ▼"; color: var(--accent); }
         </div>
       </div>
     </div>
+
+    <!-- TRANSACTION OVERVIEW PANEL (drill-down; shown only when a coin is opened via the row menu) -->
+    <div class="pf-panel" id="pf-panel-tx">
+      <nav class="pf-tx-breadcrumb" id="pf-tx-breadcrumb"></nav>
+      <div id="pf-tx-content"></div>
+    </div>
   </section>
 
   <!-- BUBBLES VIEW -->
@@ -1336,7 +1342,7 @@ th.sorted-desc::after { content: " ▼"; color: var(--accent); }
 
 <!-- floating per-row menu (Coins table ⋮) -->
 <div class="menu hidden" id="row-menu">
-  <button data-act="edit">✏️ Edit holding</button>
+  <button data-act="view-tx">📄 View transactions</button>
   <button data-act="remove" class="danger">🗑 Remove coin</button>
 </div>
 
@@ -1776,6 +1782,7 @@ const Portfolio = (() => {
   let rowMenuCoin = null;
   let npMode = 'create';    // 'create' | 'rename' for the portfolio modal
   let npIcon = ICONS[0];
+  let txCoinId = null;      // coinId whose Transaction Overview is open (null = normal Coins/Analytics view)
 
   function genId() {
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -2094,6 +2101,19 @@ const Portfolio = (() => {
     rowMenuCoin = null;
   }
 
+  /* ----- transaction overview navigation ----- */
+
+  function openTxOverview(coinId) {
+    txCoinId = coinId;
+    render();
+    if (window.smoother) window.smoother.scrollTo(0, false);
+  }
+
+  function closeTxOverview() {
+    txCoinId = null;
+    render();
+  }
+
   /* ----- rendering ----- */
 
   function signedCls(v) { return v == null ? '' : v >= 0 ? 'up' : 'down'; }
@@ -2227,6 +2247,35 @@ const Portfolio = (() => {
   }
 
   function render() {
+    const txPanel = document.getElementById('pf-panel-tx');
+    const subtabs = document.querySelector('#view-portfolio .pf-subtabs');
+    const coinsPanel = document.getElementById('pf-panel-coins');
+    const anPanel = document.getElementById('pf-panel-analytics');
+    if (txCoinId) {
+      // if the coin is gone (removed), fall back to the normal view
+      const p = activePortfolio();
+      const raw = p && p.holdings.find(x => x.coinId === txCoinId);
+      if (!raw) { txCoinId = null; }
+    }
+    if (txCoinId) {
+      renderTabs(); renderHead();
+      subtabs.classList.add('hidden');
+      coinsPanel.classList.remove('active'); coinsPanel.classList.add('hidden');
+      anPanel.classList.remove('active'); anPanel.classList.add('hidden');
+      txPanel.classList.add('active');
+      renderTxOverview(txCoinId);
+      if (typeof ScrollTrigger !== 'undefined') ScrollTrigger.refresh(true);
+      return;
+    }
+    // normal state: ensure the overview panel is hidden and subtabs restored
+    txPanel.classList.remove('active');
+    subtabs.classList.remove('hidden');
+    // restore whichever Coins/Analytics panel matches the current sub-tab
+    // (entering the tx overview force-hides both via the .hidden class above)
+    coinsPanel.classList.remove('hidden');
+    coinsPanel.classList.toggle('active', subTab === 'coins');
+    anPanel.classList.remove('hidden');
+    anPanel.classList.toggle('active', subTab === 'analytics');
     renderTabs();
     renderHead();
     const holdings = currentHoldings();
@@ -2255,7 +2304,22 @@ const Portfolio = (() => {
     ScrollTrigger.refresh(true); // content height may have just changed
   }
 
+  function renderTxOverview(coinId) {
+    const p = activePortfolio();
+    const c = coinById(coinId);
+    const name = c ? c.name : coinId;
+    document.getElementById('pf-tx-breadcrumb').innerHTML =
+      '<button class="crumb" data-crumb="coins">Cryptocurrencies</button>'
+      + '<span class="crumb-sep">›</span>'
+      + '<button class="crumb" data-crumb="coins">' + esc(p ? (p.icon||'⭐') + ' ' + p.name : 'My Portfolio') + '</button>'
+      + '<span class="crumb-sep">›</span>'
+      + '<span class="crumb current">' + esc(name) + ' Transaction Overview</span>';
+    // Task 3 fills #pf-tx-content with header + stat cards + table.
+    document.getElementById('pf-tx-content').innerHTML = '<p class="muted">Transactions for ' + esc(name) + ' will appear here.</p>';
+  }
+
   function switchSubTab(name) {
+    txCoinId = null;
     subTab = name;
     document.querySelectorAll('.pf-subtab').forEach(b =>
       b.classList.toggle('active', b.dataset.sub === name));
@@ -2273,6 +2337,7 @@ const Portfolio = (() => {
     document.getElementById('pf-tabs').addEventListener('click', e => {
       const btn = e.target.closest('.pf-tab[data-pid]');
       if (!btn) return;
+      txCoinId = null;
       store.activeId = btn.dataset.pid;
       save();
       render();
@@ -2332,11 +2397,16 @@ const Portfolio = (() => {
       if (!btn || !rowMenuCoin) return;
       const id = rowMenuCoin;
       hideRowMenu();
-      if (btn.dataset.act === 'edit') openTxModal(id, true);
+      if (btn.dataset.act === 'view-tx') openTxOverview(id);
       else if (btn.dataset.act === 'remove') {
         const c = coinById(id);
         if (confirm('Remove ' + (c ? c.name : id) + ' from this portfolio?')) removeCoin(id);
       }
+    });
+
+    // transaction overview breadcrumb
+    document.getElementById('pf-tx-breadcrumb').addEventListener('click', e => {
+      if (e.target.closest('[data-crumb="coins"]')) closeTxOverview();
     });
 
     // remove modal
