@@ -2057,6 +2057,7 @@ const Portfolio = (() => {
     if (!p) return;
     editingTxId = txId || null;
     editingId = null; // legacy var no longer used for holdings
+    selectedCoin = null; // clear any coin left selected from a prior open — form.reset() blanks the input but doesn't fire the event that nulls this, so without it "+ Add coin" could inherit a stale coin and write the tx onto the wrong one
     document.getElementById('pf-tx-error').classList.add('hidden');
     document.getElementById('pf-form').reset();
     document.getElementById('tx-title').textContent = txId ? 'Edit Transaction' : 'Add Transaction';
