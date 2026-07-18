@@ -374,6 +374,25 @@ th.sorted-desc::after { content: " ▼"; color: var(--accent); }
 .pf-panel { display: none; }
 .pf-panel.active { display: block; }
 
+/* ---------- Transaction Overview ---------- */
+.pf-tx-breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 16px; flex-wrap: wrap; }
+.pf-tx-breadcrumb .crumb { background: none; border: none; color: var(--muted); cursor: pointer; padding: 0; font: inherit; }
+.pf-tx-breadcrumb .crumb:hover { color: var(--text); }
+.pf-tx-breadcrumb .crumb.current { color: var(--text); }
+.pf-tx-breadcrumb .crumb-sep { color: var(--muted); }
+.tx-header { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+.tx-header img { border-radius: 50%; }
+.tx-h-name { font-size: 20px; font-weight: 700; }
+.tx-h-price { font-size: 20px; font-weight: 700; margin-left: 6px; }
+.tx-cards { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 22px; }
+@media (max-width: 900px) { .tx-cards { grid-template-columns: repeat(2, 1fr); } }
+.tx-table-head-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.tx-table-head-row .btn.cta { width: auto; }
+.tx-type { font-weight: 600; }
+.tx-type.buy { color: var(--green, #16c784); }
+.tx-type.sell { color: var(--red, #ea3943); }
+.tx-type.transfer { color: var(--muted); }
+
 .cell-main { font-weight: 600; }
 .cell-sub { font-size: 12px; color: var(--muted); }
 .cell-sub.up { color: var(--green); }
@@ -1783,6 +1802,8 @@ const Portfolio = (() => {
   let npMode = 'create';    // 'create' | 'rename' for the portfolio modal
   let npIcon = ICONS[0];
   let txCoinId = null;      // coinId whose Transaction Overview is open (null = normal Coins/Analytics view)
+  let txPage = 1;
+  const TX_PAGE_SIZE = 50;
 
   function genId() {
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -1811,6 +1832,42 @@ const Portfolio = (() => {
       }
     }
     return { coinId: h.coinId, transactions: h.transactions || [], amount, buyPrice: avgCost, realizedPnl };
+  }
+
+  /* Per-transaction Cost/Proceeds/PNL, computed with the running average
+     cost at each point in the (date-sorted) ledger. Buys show unrealized
+     PNL vs the live price; sells show realized PNL vs avg cost at sale. */
+  function annotateTransactions(raw) {
+    const c = coinById(raw.coinId);
+    const price = c ? c.current_price : null;
+    let amount = 0, avgCost = 0;
+    const chrono = [...(raw.transactions || [])].sort((a, b) => a.date - b.date);
+    const ann = new Map();
+    for (const t of chrono) {
+      let cost = null, proceeds = null, pnl = null;
+      if (t.type === 'buy') {
+        const na = amount + t.quantity;
+        const addedCost = t.quantity * t.pricePerCoin + (t.fees || 0);
+        avgCost = na > 0 ? (amount * avgCost + addedCost) / na : 0;
+        amount = na;
+        cost = t.quantity * t.pricePerCoin + (t.fees || 0);
+        pnl = price != null ? (price - t.pricePerCoin) * t.quantity - (t.fees || 0) : null;
+      } else if (t.type === 'sell') {
+        const sq = Math.min(t.quantity, amount);
+        proceeds = t.quantity * t.pricePerCoin - (t.fees || 0);
+        pnl = (t.pricePerCoin - avgCost) * sq - (t.fees || 0);
+        amount -= sq;
+      } else if (t.type === 'transfer') {
+        amount += (t.direction === 'out' ? -t.quantity : t.quantity);
+        if (amount < 0) amount = 0;
+      }
+      ann.set(t.id, { tx: t, cost, proceeds, pnl });
+    }
+    // newest-first for display
+    const rows = [...(raw.transactions || [])]
+      .sort((a, b) => b.date - a.date)
+      .map(t => ann.get(t.id));
+    return { rows, derived: deriveHolding(raw) };
   }
 
   /* ----- storage ----- */
@@ -2105,6 +2162,7 @@ const Portfolio = (() => {
 
   function openTxOverview(coinId) {
     txCoinId = coinId;
+    txPage = 1;
     render();
     if (window.smoother) window.smoother.scrollTo(0, false);
   }
@@ -2113,6 +2171,8 @@ const Portfolio = (() => {
     txCoinId = null;
     render();
   }
+
+  function openTxEditor(coinId, txId) { /* implemented in Task 4 */ }
 
   /* ----- rendering ----- */
 
@@ -2306,16 +2366,94 @@ const Portfolio = (() => {
 
   function renderTxOverview(coinId) {
     const p = activePortfolio();
+    const raw = p && p.holdings.find(x => x.coinId === coinId);
     const c = coinById(coinId);
     const name = c ? c.name : coinId;
+    const sym = c ? c.symbol.toUpperCase() : '';
     document.getElementById('pf-tx-breadcrumb').innerHTML =
-      '<button class="crumb" data-crumb="coins">Cryptocurrencies</button>'
-      + '<span class="crumb-sep">›</span>'
+      '<button class="crumb" data-crumb="coins">Cryptocurrencies</button><span class="crumb-sep">›</span>'
       + '<button class="crumb" data-crumb="coins">' + esc(p ? (p.icon||'⭐') + ' ' + p.name : 'My Portfolio') + '</button>'
-      + '<span class="crumb-sep">›</span>'
-      + '<span class="crumb current">' + esc(name) + ' Transaction Overview</span>';
-    // Task 3 fills #pf-tx-content with header + stat cards + table.
-    document.getElementById('pf-tx-content').innerHTML = '<p class="muted">Transactions for ' + esc(name) + ' will appear here.</p>';
+      + '<span class="crumb-sep">›</span><span class="crumb current">' + esc(name) + ' Transaction Overview</span>';
+    if (!raw) { document.getElementById('pf-tx-content').innerHTML = ''; return; }
+
+    const { rows, derived } = annotateTransactions(raw);
+    const price = c ? c.current_price : null;
+    const holdingsValue = price != null ? derived.amount * price : null;
+    const totalCost = derived.amount * derived.buyPrice;
+    const unrealized = price != null ? (price - derived.buyPrice) * derived.amount : 0;
+    const totalPnl = unrealized + derived.realizedPnl;
+    const chg24 = c ? c.price_change_percentage_24h_in_currency : null;
+
+    const header = '<div class="tx-header">'
+      + (c ? '<img src="' + esc(c.image || BLANK_IMG) + '" alt="" width="28" height="28">' : '')
+      + '<span class="tx-h-name">' + esc(name) + '</span><span class="coin-sym">' + esc(sym) + '</span>'
+      + '<span class="tx-h-price">' + fmtUSD(price) + '</span>'
+      + '<span class="tx-h-chg">' + pctSpan(chg24) + '</span></div>';
+
+    const cards = '<div class="tx-cards">'
+      + txCard('Holdings Value', holdingsValue != null ? fmtCompactPrecise(holdingsValue) : '—')
+      + txCard('Holdings', derived.amount.toLocaleString('en-US', { maximumFractionDigits: 8 }) + ' ' + esc(sym))
+      + txCard('Total Cost', fmtCompactPrecise(totalCost))
+      + txCard('Average Net Cost', fmtUSD(derived.buyPrice))
+      + txCard('Total Profit / Loss', '<span class="' + signedCls(totalPnl) + '">' + signedUSD(totalPnl) + '</span>')
+      + '</div>';
+
+    const totalPages = Math.max(1, Math.ceil(rows.length / TX_PAGE_SIZE));
+    txPage = Math.min(Math.max(txPage, 1), totalPages);
+    const pageRows = rows.slice((txPage - 1) * TX_PAGE_SIZE, txPage * TX_PAGE_SIZE);
+
+    const body = pageRows.map(r => txRowHTML(r, sym)).join('');
+    const table = '<div class="tx-table-head-row"><h3>Transactions</h3>'
+      + '<button class="btn cta" id="pf-tx-add">+ Add transaction</button></div>'
+      + '<div class="table-wrap"><table class="data-table" id="pf-tx-table"><thead><tr>'
+      + '<th>Type</th><th class="num">Price</th><th class="num">Quantity</th><th>Date &amp; Time</th>'
+      + '<th class="num">Fees</th><th class="num">Cost</th><th class="num">Proceeds</th><th class="num">PNL</th>'
+      + '<th>Notes</th><th class="num">Actions</th></tr></thead><tbody>'
+      + (body || '<tr><td colspan="10" class="loading-cell">No transactions yet.</td></tr>')
+      + '</tbody></table></div>'
+      + '<div class="pagination' + (totalPages <= 1 ? ' hidden' : '') + '" id="pf-tx-pagination">'
+      + '<button class="btn" id="pf-tx-prev"' + (txPage <= 1 ? ' disabled' : '') + '>← Previous</button>'
+      + '<span class="pagination-info">Page ' + txPage + ' of ' + totalPages + '</span>'
+      + '<button class="btn" id="pf-tx-next"' + (txPage >= totalPages ? ' disabled' : '') + '>Next →</button></div>';
+
+    document.getElementById('pf-tx-content').innerHTML = header + cards + table;
+  }
+
+  function txCard(label, valueHTML) {
+    return '<div class="card"><span class="card-value">' + valueHTML + '</span><span class="card-label">' + esc(label) + '</span></div>';
+  }
+
+  function txTypeLabel(t) {
+    if (t.type === 'buy') return '<span class="tx-type buy">Buy</span>';
+    if (t.type === 'sell') return '<span class="tx-type sell">Sell</span>';
+    return '<span class="tx-type transfer">Transfer ' + (t.direction === 'out' ? 'out' : 'in') + '</span>';
+  }
+
+  function fmtTxDate(ms) {
+    const d = new Date(ms);
+    return d.toLocaleString('en-US', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+
+  function txRowHTML(r, sym) {
+    const t = r.tx;
+    const signedQty = (t.type === 'sell' || (t.type === 'transfer' && t.direction === 'out') ? '-' : '+')
+      + t.quantity.toLocaleString('en-US', { maximumFractionDigits: 8 });
+    const priceCell = t.type === 'transfer' ? '—' : fmtUSD(t.pricePerCoin);
+    const feeCell = t.type === 'transfer' ? '—' : fmtUSD(t.fees || 0);
+    return '<tr>'
+      + '<td>' + txTypeLabel(t) + '</td>'
+      + '<td class="num">' + priceCell + '</td>'
+      + '<td class="num ' + (signedQty.startsWith('-') ? 'down' : 'up') + '">' + signedQty + ' ' + esc(sym) + '</td>'
+      + '<td>' + esc(fmtTxDate(t.date)) + '</td>'
+      + '<td class="num">' + feeCell + '</td>'
+      + '<td class="num">' + (r.cost != null ? fmtCompactPrecise(r.cost) : '—') + '</td>'
+      + '<td class="num">' + (r.proceeds != null ? fmtCompactPrecise(r.proceeds) : '—') + '</td>'
+      + '<td class="num"><span class="' + signedCls(r.pnl) + '">' + (r.pnl != null ? signedUSD(r.pnl) : '—') + '</span></td>'
+      + '<td>' + esc(t.notes || '') + '</td>'
+      + '<td class="num actions-cell">'
+      + '<button class="btn small" data-tx-edit="' + esc(t.id) + '" title="Edit">✏️</button> '
+      + '<button class="btn small" data-tx-del="' + esc(t.id) + '" title="Delete">🗑</button></td>'
+      + '</tr>';
   }
 
   function switchSubTab(name) {
@@ -2407,6 +2545,28 @@ const Portfolio = (() => {
     // transaction overview breadcrumb
     document.getElementById('pf-tx-breadcrumb').addEventListener('click', e => {
       if (e.target.closest('[data-crumb="coins"]')) closeTxOverview();
+    });
+
+    // transaction overview content: add/edit/delete + pagination
+    document.getElementById('pf-tx-content').addEventListener('click', e => {
+      const add = e.target.closest('#pf-tx-add');
+      const editBtn = e.target.closest('[data-tx-edit]');
+      const delBtn = e.target.closest('[data-tx-del]');
+      const prev = e.target.closest('#pf-tx-prev');
+      const next = e.target.closest('#pf-tx-next');
+      if (add) { openTxEditor(txCoinId, null); return; }
+      if (editBtn) { openTxEditor(txCoinId, editBtn.getAttribute('data-tx-edit')); return; }
+      if (delBtn) {
+        const p = activePortfolio();
+        const raw = p && p.holdings.find(x => x.coinId === txCoinId);
+        if (raw && confirm('Delete this transaction?')) {
+          raw.transactions = raw.transactions.filter(t => t.id !== delBtn.getAttribute('data-tx-del'));
+          save(); render();
+        }
+        return;
+      }
+      if (prev) { txPage = Math.max(1, txPage - 1); renderTxOverview(txCoinId); return; }
+      if (next) { txPage += 1; renderTxOverview(txCoinId); return; }
     });
 
     // remove modal
