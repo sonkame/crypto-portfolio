@@ -602,6 +602,50 @@ th.sorted-desc::after { content: " ▼"; color: var(--accent); }
   margin-top: 14px;
 }
 .pagination-info { color: var(--muted); font-size: 13px; white-space: nowrap; }
+.page-numbers { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.page-num {
+  min-width: 34px;
+  height: 34px;
+  padding: 0 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-2);
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.page-num:hover { color: var(--text); background: var(--bg-3); }
+.page-num.active { color: var(--text); background: var(--bg-3); border-color: var(--accent); }
+
+.scroll-jump {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 80;
+}
+.scroll-jump-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg-2);
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+}
+.scroll-jump-btn:hover { background: var(--bg-3); border-color: var(--accent); }
+@media (max-width: 640px) {
+  .scroll-jump { right: 12px; bottom: 12px; }
+}
 
 .combo { position: relative; }
 .combo-list {
@@ -1091,7 +1135,7 @@ th.sorted-desc::after { content: " ▼"; color: var(--accent); }
     </div>
     <div class="pagination hidden" id="market-pagination">
       <button class="btn" id="market-prev">← Previous</button>
-      <span class="pagination-info" id="market-page-info"></span>
+      <div class="page-numbers" id="market-page-numbers"></div>
       <button class="btn" id="market-next">Next →</button>
     </div>
   </section>
@@ -1258,6 +1302,13 @@ th.sorted-desc::after { content: " ▼"; color: var(--accent); }
 </div>
 <!-- /ScrollSmoother wrapper. Everything below is fixed-position UI kept
      outside it on purpose (see the note above the opening wrapper). -->
+
+<!-- Market tab: jump straight to the top or bottom of the page. Shown only
+     while Market is the active tab (toggled in switchView). -->
+<div class="scroll-jump hidden" id="market-scroll-jump">
+  <button class="scroll-jump-btn" id="scroll-to-top" title="Scroll to top" aria-label="Scroll to top">↑</button>
+  <button class="scroll-jump-btn" id="scroll-to-bottom" title="Scroll to bottom" aria-label="Scroll to bottom">↓</button>
+</div>
 
 <!-- COIN DETAIL POPUP (two-column: sidebar + chart, like CryptoBubbles) -->
 <div id="coin-panel" class="side-panel" role="dialog" aria-modal="true">
@@ -1733,7 +1784,12 @@ const Market = (() => {
 
   function renderPagination(pageNum, totalPages) {
     const el = document.getElementById('market-pagination');
-    document.getElementById('market-page-info').textContent = 'Page ' + pageNum + ' of ' + totalPages;
+    const numbers = document.getElementById('market-page-numbers');
+    let html = '';
+    for (let p = 1; p <= totalPages; p++) {
+      html += '<button class="page-num' + (p === pageNum ? ' active' : '') + '" data-page="' + p + '">' + p + '</button>';
+    }
+    numbers.innerHTML = html;
     document.getElementById('market-prev').disabled = pageNum <= 1;
     document.getElementById('market-next').disabled = pageNum >= totalPages;
     el.classList.toggle('hidden', totalPages <= 1);
@@ -1812,6 +1868,15 @@ const Market = (() => {
     });
     document.getElementById('market-next').addEventListener('click', () => {
       page++;
+      render();
+      scrollToTableTop();
+    });
+    document.getElementById('market-page-numbers').addEventListener('click', e => {
+      const btn = e.target.closest('button[data-page]');
+      if (!btn) return;
+      const p = parseInt(btn.dataset.page, 10);
+      if (p === page) return;
+      page = p;
       render();
       scrollToTableTop();
     });
@@ -4094,6 +4159,7 @@ function switchView(name) {
     t.classList.toggle('active', t.dataset.view === name));
   if (name === 'bubbles') Bubbles.start();
   else Bubbles.stop();
+  document.getElementById('market-scroll-jump').classList.toggle('hidden', name !== 'market');
   // Purely cosmetic (keeps the URL bar/back-button in sync with the active
   // tab) - opened via file://, Chrome's cross-origin navigation check
   // misfires on replaceState and logs a console error even though nothing
@@ -4162,6 +4228,15 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.tab').forEach(t =>
     t.addEventListener('click', () => switchView(t.dataset.view)));
   window.addEventListener('hashchange', () => switchView(location.hash.slice(1)));
+
+  document.getElementById('scroll-to-top').addEventListener('click', () => {
+    window.smoother.scrollTo(0, true);
+  });
+  document.getElementById('scroll-to-bottom').addEventListener('click', () => {
+    // scrollTo clamps to the real max, same as native scrollTo with an
+    // out-of-range value - no need to compute the exact bottom ourselves.
+    window.smoother.scrollTo(document.documentElement.scrollHeight, true);
+  });
 
   switchView(location.hash.slice(1) || 'market');
 
