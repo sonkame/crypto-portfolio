@@ -3679,20 +3679,37 @@ const Gallery = (() => {
 })();
 </script>
 
+<!-- Hand-curated translations for the Portfolio page's exact static labels.
+     These take precedence over the live API so the known chrome is always
+     correct/instant; MyMemory is only a fallback for anything not listed
+     here. Generated from neural machine translation, reviewed per language
+     (e.g. "Top Performer" fixed from a stage-"performer" mistranslation to a
+     finance sense). Keys must match the data-i18n attribute values exactly. -->
+<script type="application/json" id="i18n-curated">
+{"es":{"24h Portfolio Change":"Cambio de cartera 24h","Add coin":"Añadir moneda","Analytics":"Analítica","Coins":"Monedas","Current Balance":"Saldo actual","+ New Portfolio":"+ Nueva cartera","No holdings yet — click “＋ Add coin” to add your first coin.":"Aún no hay activos: haz clic en “＋ Añadir moneda” para agregar tu primera moneda.","Remove coin":"Eliminar moneda","Top Performer":"Mejor rendimiento","Total Profit / Loss":"Ganancia / pérdida total","Your portfolios are stored locally in this browser only.":"Tus carteras se almacenan localmente solo en este navegador."},"fr":{"24h Portfolio Change":"Variation du portefeuille 24h","Add coin":"Ajouter une pièce","Analytics":"Analyses","Coins":"Pièces","Current Balance":"Solde actuel","+ New Portfolio":"+ Nouveau portefeuille","No holdings yet — click “＋ Add coin” to add your first coin.":"Aucun avoir pour l’instant — cliquez sur « ＋ Ajouter une pièce » pour ajouter votre première pièce.","Remove coin":"Retirer la pièce","Top Performer":"Meilleure performance","Total Profit / Loss":"Profit / perte total","Your portfolios are stored locally in this browser only.":"Vos portefeuilles sont stockés localement dans ce navigateur uniquement."},"de":{"24h Portfolio Change":"24-Std.-Portfolioänderung","Add coin":"Münze hinzufügen","Analytics":"Analyse","Coins":"Münzen","Current Balance":"Aktueller Kontostand","+ New Portfolio":"+ Neues Portfolio","No holdings yet — click “＋ Add coin” to add your first coin.":"Noch keine Bestände — klicken Sie auf „＋ Münze hinzufügen“, um Ihre erste Münze hinzuzufügen.","Remove coin":"Münze entfernen","Top Performer":"Top-Performer","Total Profit / Loss":"Gesamtgewinn / -verlust","Your portfolios are stored locally in this browser only.":"Ihre Portfolios werden nur lokal in diesem Browser gespeichert."},"it":{"24h Portfolio Change":"Variazione portafoglio 24h","Add coin":"Aggiungi moneta","Analytics":"Analisi","Coins":"Monete","Current Balance":"Saldo attuale","+ New Portfolio":"+ Nuovo portafoglio","No holdings yet — click “＋ Add coin” to add your first coin.":"Ancora nessun asset — fai clic su “＋ Aggiungi moneta” per aggiungere la tua prima moneta.","Remove coin":"Rimuovi moneta","Top Performer":"Migliore performance","Total Profit / Loss":"Profitto / perdita totale","Your portfolios are stored locally in this browser only.":"I tuoi portafogli sono archiviati localmente solo in questo browser."},"pt":{"24h Portfolio Change":"Variação do portfólio 24h","Add coin":"Adicionar moeda","Analytics":"Análise","Coins":"Moedas","Current Balance":"Saldo atual","+ New Portfolio":"+ Novo portfólio","No holdings yet — click “＋ Add coin” to add your first coin.":"Ainda não há ativos — clique em “＋ Adicionar moeda” para adicionar sua primeira moeda.","Remove coin":"Remover moeda","Top Performer":"Melhor desempenho","Total Profit / Loss":"Lucro / perda total","Your portfolios are stored locally in this browser only.":"Seus portfólios são armazenados localmente apenas neste navegador."},"ja":{"24h Portfolio Change":"24時間のポートフォリオ変化","Add coin":"コインを追加","Analytics":"分析","Coins":"コイン","Current Balance":"現在の残高","+ New Portfolio":"+ 新しいポートフォリオ","No holdings yet — click “＋ Add coin” to add your first coin.":"まだ保有資産がありません — 「＋ コインを追加」をクリックして最初のコインを追加しましょう。","Remove coin":"コインを削除","Top Performer":"トップパフォーマー","Total Profit / Loss":"合計損益","Your portfolios are stored locally in this browser only.":"ポートフォリオはこのブラウザ内にのみローカルに保存されます。"}}
+</script>
+
 <script>
 /* ==================== translate.js ====================
-   Portfolio-page-only UI-label translation via MyMemory's free, keyless
-   REST API (https://api.mymemory.translated.net/get, CORS-open, verified).
-   Translates ONLY curated data-i18n label strings — never coin names,
-   numbers, or dates. Results cached in localStorage so repeat visits and
-   language switches stay far under the ~5000 char/day free quota. Requests
-   go through a small in-module serial queue so we never burst. */
+   Portfolio-page-only UI-label translation. A hand-curated dictionary
+   (#i18n-curated) is consulted first so the known static labels are always
+   correct and instant; anything not in it falls back to MyMemory's free,
+   keyless REST API (https://api.mymemory.translated.net/get, CORS-open,
+   verified). Translates ONLY data-i18n label strings — never coin names,
+   numbers, or dates. API results cached in localStorage so repeat visits and
+   language switches stay far under the ~5000 char/day free quota. API
+   requests go through a small in-module serial queue so we never burst. */
 const Translate = (() => {
   const LANG_KEY = 'cryptofolio.i18n.lang';
   const cachePrefix = 'cryptofolio.i18n.';
   let lang = localStorage.getItem(LANG_KEY) || 'en';
   const originals = new WeakMap(); // node -> original English text
   let quotaHit = false;
+
+  // Hand-curated translations for the known labels (see #i18n-curated). These
+  // win over the live API so the static chrome is always correct and instant.
+  let CURATED = {};
+  try { CURATED = JSON.parse(document.getElementById('i18n-curated').textContent); } catch (_) {}
 
   // tiny serial queue (own budget; independent of the CoinGecko queue)
   let queue = Promise.resolve();
@@ -3705,6 +3722,8 @@ const Translate = (() => {
   function cacheKey(l, text) { return cachePrefix + l + '.' + text; }
 
   async function translateOne(text, l) {
+    const curated = CURATED[l] && CURATED[l][text];
+    if (curated) return curated; // known label — always correct, no cache/network
     const ck = cacheKey(l, text);
     const hit = localStorage.getItem(ck);
     if (hit !== null) return hit;
