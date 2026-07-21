@@ -292,6 +292,7 @@ th.sorted-desc::after { content: " ▼"; color: var(--accent); }
 }
 .chip { padding: 1px 6px; font-size: 10px; }
 
+.pf-head-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .pf-actions { display: flex; align-items: center; gap: 8px; }
 .pf-lang { background: var(--bg-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font: inherit; cursor: pointer; }
 .btn.icon { padding: 9px 13px; }
@@ -402,6 +403,9 @@ th.sorted-desc::after { content: " ▼"; color: var(--accent); }
 .tx-usemkt { white-space: nowrap; background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
 .tx-usemkt:hover { color: var(--text); }
 .tx-error { color: var(--red, #ea3943); font-size: 13px; margin: 0; }
+.tx-usemkt:disabled { opacity: .5; cursor: default; }
+.tx-usemkt:disabled:hover { color: var(--muted); }
+#pf-pastprice:disabled { opacity: .6; cursor: default; color: var(--text); -webkit-text-fill-color: var(--text); }
 
 .cell-main { font-weight: 600; }
 .cell-sub { font-size: 12px; color: var(--muted); }
@@ -1155,26 +1159,28 @@ th.sorted-desc::after { content: " ▼"; color: var(--accent); }
         <h2 id="pf-title-name">My Portfolio</h2>
         <span class="badge hidden" id="pf-default-badge">Default</span>
       </div>
-      <div class="pf-actions" id="pf-actions">
-        <button class="btn" id="pf-add-btn">＋ <span data-i18n="Add coin">Add coin</span></button>
-        <button class="btn" id="pf-remove-btn">− <span data-i18n="Remove coin">Remove coin</span></button>
-        <div class="menu-wrap">
-          <button class="btn icon" id="pf-menu-btn" aria-label="Portfolio menu">⋮</button>
-          <div class="menu hidden" id="pf-menu">
-            <button data-act="rename">✏️ Rename portfolio</button>
-            <button data-act="delete" class="danger">🗑 Delete portfolio</button>
+      <div class="pf-head-right">
+        <div class="pf-actions" id="pf-actions">
+          <button class="btn" id="pf-add-btn">＋ <span data-i18n="Add coin">Add coin</span></button>
+          <button class="btn" id="pf-remove-btn">− <span data-i18n="Remove coin">Remove coin</span></button>
+          <div class="menu-wrap">
+            <button class="btn icon" id="pf-menu-btn" aria-label="Portfolio menu">⋮</button>
+            <div class="menu hidden" id="pf-menu">
+              <button data-act="rename">✏️ Rename portfolio</button>
+              <button data-act="delete" class="danger">🗑 Delete portfolio</button>
+            </div>
           </div>
         </div>
+        <select class="pf-lang" id="pf-lang" aria-label="Translate this page">
+          <option value="en">English</option>
+          <option value="es">Español</option>
+          <option value="fr">Français</option>
+          <option value="de">Deutsch</option>
+          <option value="it">Italiano</option>
+          <option value="pt">Português</option>
+          <option value="ja">日本語</option>
+        </select>
       </div>
-      <select class="pf-lang" id="pf-lang" aria-label="Translate this page">
-        <option value="en">English</option>
-        <option value="es">Español</option>
-        <option value="fr">Français</option>
-        <option value="de">Deutsch</option>
-        <option value="it">Italiano</option>
-        <option value="pt">Português</option>
-        <option value="ja">日本語</option>
-      </select>
     </div>
 
     <!-- summary cards -->
@@ -1395,6 +1401,10 @@ th.sorted-desc::after { content: " ▼"; color: var(--accent); }
     <div class="tx-field-row" id="tx-price-row">
       <input id="pf-buyprice" type="number" min="0" step="any" placeholder="Price per coin (USD)" aria-label="Price per coin in USD">
       <button type="button" class="tx-usemkt" id="pf-usemkt">Use Market</button>
+    </div>
+    <div class="tx-field-row" id="tx-pastprice-row">
+      <input id="pf-pastprice" type="text" placeholder="Coin Price" aria-label="Coin price on selected date" readonly>
+      <button type="button" class="tx-usemkt" id="pf-usepast" disabled>Use</button>
     </div>
     <input id="pf-date" type="datetime-local" aria-label="Date and time">
     <div class="tx-field-row" id="tx-fees-row">
@@ -1689,7 +1699,31 @@ const API = (() => {
     }
   }
 
-  return { fetchAll, fromCacheResult, fetchMarketChart, fetchCategories };
+  /* USD price of a coin on a specific past calendar date via CoinGecko's
+     /coins/{id}/history endpoint (verified against docs.coingecko.com, July
+     2026). `dmy` must be dd-mm-yyyy. Returns the daily snapshot price
+     (00:00 UTC of that date) or null when no data exists.
+
+     Caller MUST pre-check the two hard limits this endpoint has on the
+     keyless/free tier so we don't waste a call against the tight rate limit:
+       1. Historical data is restricted to the PAST 365 DAYS. Older dates
+          just error — there's no free data to return.
+       2. Only CoinGecko coins have history; CoinCodex tail coins (id 'cc:…')
+          have none.
+     A past date's snapshot is immutable, so it's cached forever (no TTL). */
+  async function fetchHistoryPrice(id, dmy) {
+    const key = 'cryptofolio.cache.hist.' + id + '.' + dmy;
+    const cached = readCache(key);
+    if (cached) return cached.data;
+    const data = await enqueue(() => getJSON(BASE + '/coins/' + encodeURIComponent(id)
+      + '/history?date=' + encodeURIComponent(dmy) + '&localization=false'));
+    const price = data && data.market_data && data.market_data.current_price
+      ? data.market_data.current_price.usd : null;
+    if (price != null) writeCache(key, price);
+    return price != null ? price : null;
+  }
+
+  return { fetchAll, fromCacheResult, fetchMarketChart, fetchCategories, fetchHistoryPrice };
 })();
 </script>
 
@@ -2104,6 +2138,7 @@ const Portfolio = (() => {
     selectedCoin = id;
     document.getElementById('pf-coin').value = c ? c.name + ' (' + c.symbol.toUpperCase() + ')' : id;
     closeComboList();
+    schedulePastPrice();
   }
 
   /* ----- add / edit transaction modal ----- */
@@ -2112,9 +2147,11 @@ const Portfolio = (() => {
     txType = type;
     document.querySelectorAll('#tx-tabs .tx-tab').forEach(b => b.classList.toggle('active', b.dataset.txtype === type));
     document.getElementById('tx-price-row').style.display = type === 'transfer' ? 'none' : '';
+    document.getElementById('tx-pastprice-row').style.display = type === 'transfer' ? 'none' : '';
     document.getElementById('tx-fees-row').style.display = type === 'transfer' ? 'none' : '';
     document.getElementById('tx-transfer-dir-row').style.display = type === 'transfer' ? '' : 'none';
     document.getElementById('pf-submit').textContent = editingTxId ? 'Save Transaction' : 'Add Transaction';
+    schedulePastPrice();
   }
 
   function openTxEditor(coinId, txId) {
@@ -2154,6 +2191,76 @@ const Portfolio = (() => {
     }
     setTxType(type);
     openModal('tx-modal');
+    updatePastPrice();
+  }
+
+  /* ----- "Price past coin": auto price on the picked date ----- */
+
+  let pastPriceReq = 0;      // monotonic token so a slow fetch can't clobber a newer one
+  let pastPriceTimer = null; // debounce rapid date-segment edits
+
+  function schedulePastPrice() {
+    clearTimeout(pastPriceTimer);
+    pastPriceTimer = setTimeout(updatePastPrice, 300);
+  }
+
+  // dd-mm-yyyy of the calendar date the user picked (datetime-local is local wall-clock)
+  function toDMY(d) {
+    return String(d.getDate()).padStart(2, '0') + '-'
+      + String(d.getMonth() + 1).padStart(2, '0') + '-'
+      + d.getFullYear();
+  }
+
+  async function updatePastPrice() {
+    const valEl = document.getElementById('pf-pastprice');
+    const useBtn = document.getElementById('pf-usepast');
+    if (!valEl || !useBtn) return;
+    const token = ++pastPriceReq;
+    // The field is only ever a display of a computed result, never something to
+    // type into (it's `readonly` in the markup). It stays enabled/blank — matching
+    // the look of the untouched fields around it — only until a coin is picked;
+    // from that point on it's locked (disabled) whether the lookup lands on a
+    // price or on a status message, since neither is user-editable input.
+    const setState = (text, price, locked) => {
+      if (token !== pastPriceReq) return;
+      valEl.value = text;
+      valEl.disabled = !!locked;
+      valEl.dataset.price = price != null ? price : '';
+      valEl.title = price != null ? 'Daily price (00:00 UTC) on the selected date' : '';
+      useBtn.disabled = price == null;
+    };
+
+    if (txType === 'transfer') return setState('', null, false);
+    const c = coinById(selectedCoin);
+    if (!c) return setState('', null, false);
+    if (c._source === 'coincodex' || String(c.id).startsWith('cc:')) {
+      return setState('No history for this coin', null, true);
+    }
+    const dateStr = document.getElementById('pf-date').value;
+    const picked = dateStr ? new Date(dateStr) : null;
+    if (!picked || isNaN(picked)) return setState('', null, true);
+
+    // Today (local) or later has no completed daily snapshot yet — use current price.
+    const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+    if (picked >= startOfToday) return setState('Use “Use Market” for today', null, true);
+
+    // Free/keyless tier only serves the past 365 days — don't waste a call otherwise.
+    if ((Date.now() - picked.getTime()) / 86400000 > 365) {
+      return setState('No free data (older than 1 year)', null, true);
+    }
+
+    setState('Loading…', null, true);
+    try {
+      const price = await API.fetchHistoryPrice(c.id, toDMY(picked));
+      if (token !== pastPriceReq) return;
+      if (price == null) return setState('No data for this date', null, true);
+      setState(fmtUSD(price), price, true);
+      // Auto-fill the actual price only when the user hasn't entered one.
+      const bp = document.getElementById('pf-buyprice');
+      if (!bp.value) bp.value = price;
+    } catch (e) {
+      setState('Couldn’t load — retry', null, true);
+    }
   }
 
   function onSubmit(e) {
@@ -2649,7 +2756,7 @@ const Portfolio = (() => {
 
     // tx modal form + combo
     const coinInput = document.getElementById('pf-coin');
-    coinInput.addEventListener('input', () => { selectedCoin = null; renderComboList(); });
+    coinInput.addEventListener('input', () => { selectedCoin = null; renderComboList(); schedulePastPrice(); });
     coinInput.addEventListener('focus', () => { if (!coinInput.disabled) renderComboList(); });
     document.addEventListener('click', e => {
       if (!e.target.closest('.combo')) closeComboList();
@@ -2667,6 +2774,11 @@ const Portfolio = (() => {
     document.getElementById('pf-usemkt').addEventListener('click', () => {
       const c = coinById(selectedCoin);
       if (c && c.current_price != null) document.getElementById('pf-buyprice').value = c.current_price;
+    });
+    document.getElementById('pf-date').addEventListener('input', schedulePastPrice);
+    document.getElementById('pf-usepast').addEventListener('click', () => {
+      const p = document.getElementById('pf-pastprice').dataset.price;
+      if (p) document.getElementById('pf-buyprice').value = p;
     });
 
     // coins table row actions
