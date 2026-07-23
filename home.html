@@ -1088,6 +1088,12 @@ mm.add({
       scrollTrigger: {
         trigger: '#showcase-stage', start: 'top top', end: '+=400%',
         pin: true, scrub: 1, anticipatePin: 1,
+        // Nav links jump straight past this 400%-tall pin via smoother.scrollTo.
+        // Without fastScrollEnd, scrub:1's own 1s catch-up lag keeps crossfading
+        // screens for a moment AFTER that jump already lands - it looks like the
+        // "smooth" scroll is stuttering. This snaps the scrub to whichever end
+        // you're departing through once you exceed the velocity threshold.
+        fastScrollEnd: true,
         onUpdate(self) { // active list item follows scrub progress in fifths
           const idx = Math.min(4, Math.floor(self.progress * 5));
           items.forEach((it, i) => it.classList.toggle('active', i === idx));
