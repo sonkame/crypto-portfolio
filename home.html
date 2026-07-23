@@ -1,0 +1,1288 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CryptoFolio — Track crypto your way</title>
+<meta name="description" content="CryptoFolio — track, analyze and visualize your crypto portfolio entirely in your browser. No accounts, no servers, no tracking: every byte stays on your device.">
+<!-- Favicon: same 🪙 the app brand uses, as a zero-request inline SVG. -->
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🪙</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- Swiper 12 bundle CSS (bundle ships the Parallax + A11y modules used below). -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@12/swiper-bundle.min.css">
+<style>
+/* ==================== tokens / base ==================== */
+/* Brand tokens mirrored from the app (index.html :root) so the landing page
+   and the app read as one product. Landing uses #0b0e14 canvas per brief. */
+:root {
+  --bg: #0b0e14;
+  --bg-2: #11151f;
+  --bg-3: #171c29;
+  --border: #232a3b;
+  --text: #e6e9f0;
+  --muted: #8b93a7;
+  --green: #16c784;
+  --red: #ea3943;
+  --accent: #4f8cff;
+  --radius: 16px;
+  --font-body: 'Inter', system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: 'Space Grotesk', var(--font-body);
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --maxw: 1200px;
+  --pad: clamp(20px, 4vw, 48px);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 1rem;
+  line-height: 1.65;
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+/* ScrollSmoother's required wrapper/content structure (same pattern as the
+   app): wrapper is the fixed viewport clipping the transformed content;
+   anything position:fixed (nav, noise, skip link) sits OUTSIDE it below,
+   because the content transform would otherwise become their containing
+   block and "fixed" would stick to the scrolled content, not the screen. */
+#smooth-wrapper { overflow: hidden; }
+#smooth-content { display: flex; flex-direction: column; min-height: 100vh; }
+
+h1, h2, h3 { font-family: var(--font-display); line-height: 1.1; letter-spacing: -0.02em; }
+a { color: inherit; text-decoration: none; }
+button { font-family: inherit; cursor: pointer; }
+img { display: block; }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.up { color: var(--green); }
+.down { color: var(--red); }
+.accent { color: var(--accent); }
+
+/* Keyboard users get a visible ring; mouse users don't (focus-visible). */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+
+.section { padding: clamp(72px, 12vh, 140px) var(--pad); position: relative; }
+.inner { max-width: var(--maxw); margin: 0 auto; }
+.eyebrow {
+  font-family: var(--font-mono); font-size: 12px; font-weight: 500;
+  text-transform: uppercase; letter-spacing: 0.2em; color: var(--muted);
+  display: block; margin-bottom: 18px;
+}
+.h2 { font-size: clamp(2rem, 4.5vw, 3.25rem); font-weight: 700; margin-bottom: 16px; }
+.section-sub { color: var(--muted); max-width: 56ch; }
+
+/* Shared buttons. 48px min height = comfortable touch target. */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 48px; padding: 0 28px; border-radius: 999px;
+  font-family: var(--font-body); font-size: 1rem; font-weight: 600;
+  border: 1px solid transparent; transition: background 0.25s ease, border-color 0.25s ease, color 0.25s ease;
+  position: relative; cursor: pointer; white-space: nowrap;
+}
+.btn-primary { background: var(--accent); color: #0b0e14; }
+.btn-primary:hover { background: #6b9dff; }
+.btn-ghost { border-color: var(--border); color: var(--text); background: transparent; }
+.btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+/* Blurred glow twin sits BEHIND the button; hover fades it in (opacity only —
+   cheaper than animating box-shadow, which would repaint every frame). */
+.btn-wrap { position: relative; display: inline-flex; }
+.btn-glow {
+  position: absolute; inset: -14px; border-radius: 999px; z-index: -1; opacity: 0;
+  background: radial-gradient(closest-side, rgba(79,140,255,0.55), transparent 72%);
+  pointer-events: none;
+}
+
+/* ==================== nav ==================== */
+/* Fixed, therefore OUTSIDE #smooth-wrapper (see wrapper comment above). */
+.skip-link {
+  position: fixed; top: 12px; left: 12px; z-index: 200;
+  background: var(--accent); color: #0b0e14; font-weight: 600;
+  padding: 10px 18px; border-radius: 8px;
+  transform: translateY(-64px); transition: transform 0.2s ease;
+}
+.skip-link:focus-visible { transform: translateY(0); }
+#nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  border-bottom: 1px solid transparent;
+  transition: background 0.3s ease, border-color 0.3s ease, backdrop-filter 0.3s ease;
+}
+/* Toggled by ScrollTrigger after 40px of scroll (spec #1). The page's only
+   backdrop-filter — kept off the initial hero paint on purpose. */
+#nav.is-scrolled {
+  background: rgba(11,14,20,0.82);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom-color: var(--border);
+}
+.nav-inner {
+  max-width: var(--maxw); margin: 0 auto; padding: 0 var(--pad);
+  height: 68px; display: flex; align-items: center; justify-content: space-between; gap: 16px;
+}
+.brand { font-family: var(--font-display); font-weight: 700; font-size: 1.25rem; letter-spacing: -0.02em; display: inline-flex; align-items: center; gap: 8px; }
+.brand .accent { color: var(--accent); }
+.nav-links { display: flex; gap: 8px; list-style: none; }
+.nav-links a {
+  display: inline-flex; align-items: center; min-height: 44px; padding: 0 14px;
+  color: var(--muted); font-size: 0.95rem; font-weight: 500; border-radius: 8px;
+  transition: color 0.2s ease;
+}
+.nav-links a:hover { color: var(--text); }
+.nav-cta { min-height: 40px; padding: 0 20px; font-size: 0.95rem; }
+
+/* ==================== noise overlay ==================== */
+/* Static film grain: tiled feTurbulence SVG data-URI, NEVER animated.
+   position:fixed → lives outside the smooth wrapper like the nav. */
+#noise {
+  position: fixed; inset: 0; z-index: 3; pointer-events: none; opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ==================== hero ==================== */
+.hero {
+  min-height: 100svh; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; text-align: center;
+  padding: 120px var(--pad) 80px; position: relative; overflow: hidden;
+}
+/* Pre-blurred radial gradient divs, not filter:blur on content — the blur is
+   baked into the gradient falloff so the compositor only moves them. */
+.blob { position: absolute; border-radius: 50%; pointer-events: none; filter: blur(60px); }
+.blob-blue {
+  width: min(700px, 80vw); height: min(700px, 80vw); top: -12%; left: -10%;
+  background: radial-gradient(closest-side, rgba(79,140,255,0.16), transparent 70%);
+}
+.blob-green {
+  width: min(560px, 70vw); height: min(560px, 70vw); bottom: -18%; right: -12%;
+  background: radial-gradient(closest-side, rgba(22,199,132,0.08), transparent 70%);
+}
+/* Final CTA re-uses the blue blob, slightly hotter (brief: "intensified"). */
+.blob-strong { background: radial-gradient(closest-side, rgba(79,140,255,0.22), transparent 70%); }
+/* Faint dot grid, masked so it dissolves toward the edges. */
+.dot-grid {
+  position: absolute; inset: 0; pointer-events: none;
+  background-image: radial-gradient(#232a3b 1px, transparent 1px);
+  background-size: 28px 28px;
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 45%, #000 30%, transparent 75%);
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 45%, #000 30%, transparent 75%);
+}
+.hero-stack { position: relative; z-index: 2; max-width: 1000px; }
+.hero h1 {
+  font-size: clamp(3.4rem, 12vw, 10.5rem);
+  font-weight: 700; letter-spacing: -0.04em; line-height: 0.95;
+  margin: 0 0 26px;
+}
+.hero h1 .coin { font-size: 0.72em; vertical-align: 0.12em; margin-right: 0.06em; }
+.hero-sub { color: var(--muted); font-size: clamp(1rem, 1.6vw, 1.2rem); max-width: 52ch; margin: 0 auto 36px; }
+.hero-ctas { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+/* Floating glass coin chips around the wordmark. The data-speed/data-lag
+   parallax sits on the .chip-pos WRAPPER while the y-float tween runs on the
+   inner chip — ScrollSmoother's effects animate transform y on their element,
+   so tweening y on that same element would fight it (GSAP's documented
+   nesting pattern). Hidden on small screens where they'd crowd the type. */
+.chip-pos { position: absolute; z-index: 1; display: none; }
+.coin-chip {
+  display: inline-flex;
+  align-items: center; gap: 10px; padding: 12px 16px;
+  background: rgba(17,21,31,0.7); border: 1px solid var(--border);
+  border-radius: 14px;
+  font-family: var(--font-mono); font-size: 0.85rem; font-variant-numeric: tabular-nums;
+}
+.coin-chip .sym { font-weight: 600; }
+.coin-chip .dot { width: 10px; height: 10px; border-radius: 50%; }
+.chip-btc { top: 18%; left: 6%; }
+.chip-eth { top: 30%; right: 5%; }
+.chip-sol { bottom: 16%; left: 12%; }
+.chip-btc .dot { background: #f7931a; }
+.chip-eth .dot { background: #627eea; }
+.chip-sol .dot { background: #14f195; }
+@media (min-width: 900px) { .chip-pos { display: block; } }
+/* Scroll cue: little mouse outline + falling dot (dot tweened in JS). */
+.scroll-cue {
+  position: absolute; bottom: 28px; left: 50%; transform: translateX(-50%);
+  width: 22px; height: 36px; border: 2px solid var(--border); border-radius: 12px;
+  display: flex; justify-content: center; padding-top: 6px;
+}
+.scroll-cue .cue-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--accent); }
+
+/* ==================== ticker ==================== */
+.ticker-band {
+  background: var(--bg-2);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  overflow: hidden; position: relative;
+  /* Edge fades so items materialize/dissolve instead of popping at the edges. */
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+/* CSS keyframes (not a GSAP tween) on purpose: the animation keeps running
+   untouched when the backend swaps skeleton items for live ones — no re-init
+   handshake needed. Track holds items ×2 (originals + aria-hidden clones,
+   rebuilt by a MutationObserver) so -50% loops seamlessly. */
+.ticker-track {
+  display: flex; align-items: center; width: max-content;
+  animation: ticker-scroll 32s linear infinite;
+  will-change: transform; /* budget 1/6 */
+}
+.ticker-band:hover .ticker-track { animation-play-state: paused; }
+@keyframes ticker-scroll { to { transform: translateX(-50%); } }
+.ticker-item {
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 56px; padding: 0 26px; flex-shrink: 0;
+  font-family: var(--font-mono); font-size: 0.85rem; font-variant-numeric: tabular-nums;
+  color: var(--text); border-right: 1px solid rgba(35,42,59,0.6);
+}
+.ticker-logo { width: 18px; height: 18px; border-radius: 50%; }
+/* Skeleton shimmer: a translating sheen (transform only), not an animated
+   background-position, to stay on the compositor. */
+.ticker-item.skeleton .sk {
+  position: relative; overflow: hidden; background: var(--bg-3); border-radius: 6px;
+}
+.ticker-item.skeleton .sk::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(230,233,240,0.07), transparent);
+  animation: shimmer 1.6s linear infinite;
+}
+@keyframes shimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+.sk-logo { width: 18px; height: 18px; border-radius: 50% !important; }
+.sk-bar { height: 10px; }
+.sk-w1 { width: 38px; } .sk-w2 { width: 62px; } .sk-w3 { width: 44px; }
+
+/* ==================== showcase (pinned 5-tab scrub) ==================== */
+.showcase-head { text-align: center; margin-bottom: clamp(40px, 8vh, 80px); }
+.showcase-head .section-sub { margin: 0 auto; }
+#showcase-stage {
+  display: grid; grid-template-columns: 38% 1fr; gap: clamp(28px, 4vw, 56px);
+  align-items: center; min-height: 100vh; max-width: var(--maxw); margin: 0 auto;
+}
+.tab-col { position: relative; padding-left: 26px; }
+.tab-list { list-style: none; }
+/* 2px rail; the fill scales top→down with scrub progress. */
+.tab-rail, .tab-rail-fill {
+  position: absolute; left: 0; top: 6px; bottom: 6px; width: 2px; border-radius: 2px;
+}
+.tab-rail { background: var(--border); }
+.tab-rail-fill { background: var(--accent); transform: scaleY(0); transform-origin: top; }
+.tab-item { padding: 18px 0; }
+.tab-item .tab-num {
+  font-family: var(--font-mono); font-size: 0.8rem; color: var(--muted);
+  display: block; margin-bottom: 4px; transition: color 0.25s ease;
+}
+.tab-item h3 {
+  font-size: 1.6rem; font-weight: 600; color: var(--muted); transition: color 0.25s ease;
+}
+.tab-item p { color: var(--muted); font-size: 0.92rem; margin-top: 6px; max-width: 34ch; opacity: 0.75; }
+.tab-item.active .tab-num { color: var(--accent); }
+.tab-item.active h3 { color: var(--text); }
+
+/* Fake browser window that hosts the 5 mock screens. */
+.browser {
+  background: var(--bg-3); border: 1px solid var(--border); border-radius: var(--radius);
+  overflow: hidden; box-shadow: 0 30px 80px -30px rgba(0,0,0,0.6);
+}
+.browser-bar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--bg-2);
+}
+.tl-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--border); }
+.tl-dot:nth-child(1) { background: #ea3943aa; }
+.tl-dot:nth-child(2) { background: #f7931aaa; }
+.tl-dot:nth-child(3) { background: #16c784aa; }
+.browser-url {
+  flex: 1; margin-left: 6px; padding: 5px 12px; border-radius: 6px;
+  background: var(--bg); border: 1px solid var(--border);
+  font-family: var(--font-mono); font-size: 0.72rem; color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.screens { position: relative; height: clamp(360px, 48vh, 480px); }
+/* Screens stack absolutely; the scrub timeline crossfades them.
+   will-change here = items 2–6 of the 6-element budget. */
+.screen { position: absolute; inset: 0; padding: 20px; will-change: transform, opacity; }
+.screen:not(.screen-active) { opacity: 0; visibility: hidden; }
+.screen-label { display: none; }
+
+/* -- mock: market table -- */
+.mock-row {
+  display: grid; grid-template-columns: 26px 1fr auto 64px 70px; gap: 12px;
+  align-items: center; padding: 11px 12px; border-bottom: 1px solid rgba(35,42,59,0.55);
+  font-family: var(--font-mono); font-size: 0.8rem; font-variant-numeric: tabular-nums;
+}
+.mock-row .dot { width: 16px; height: 16px; border-radius: 50%; }
+.mock-row .name { font-family: var(--font-body); font-weight: 500; font-size: 0.86rem; }
+.mock-row .name small { color: var(--muted); font-weight: 400; margin-left: 6px; }
+.pill {
+  padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; text-align: center;
+}
+.pill.up { background: rgba(22,199,132,0.12); }
+.pill.down { background: rgba(234,57,67,0.12); }
+.spark { width: 70px; height: 22px; }
+.spark path { fill: none; stroke-width: 1.5; }
+.spark .up-line { stroke: var(--green); }
+.spark .down-line { stroke: var(--red); }
+
+/* -- mock: portfolio donut + holdings -- */
+.mock-portfolio { display: grid; grid-template-columns: auto 1fr; gap: 24px; align-items: center; height: 100%; }
+.donut {
+  width: clamp(120px, 16vw, 170px); aspect-ratio: 1; border-radius: 50%;
+  background: conic-gradient(var(--accent) 0 46%, var(--green) 46% 74%, #8b93a7 74% 90%, var(--bg-2) 90% 100%);
+  position: relative; display: grid; place-items: center;
+}
+.donut::before { content: ""; position: absolute; inset: 18%; border-radius: 50%; background: var(--bg-3); }
+.donut .total { position: relative; text-align: center; font-family: var(--font-mono); }
+.donut .total b { display: block; font-size: 1.05rem; }
+.donut .total small { color: var(--muted); font-size: 0.68rem; }
+.holding {
+  display: flex; justify-content: space-between; gap: 10px; padding: 10px 12px;
+  border-bottom: 1px solid rgba(35,42,59,0.55);
+  font-family: var(--font-mono); font-size: 0.82rem; font-variant-numeric: tabular-nums;
+}
+.holding .h-sym { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+.holding .h-sym .dot { width: 12px; height: 12px; border-radius: 50%; }
+
+/* -- mock: analytics area chart -- */
+.mock-analytics { display: flex; flex-direction: column; gap: 16px; height: 100%; }
+.area-chart { flex: 1; min-height: 0; }
+.stat-chips { display: flex; gap: 10px; flex-wrap: wrap; }
+.stat-chip {
+  flex: 1; min-width: 110px; padding: 12px 14px; border: 1px solid var(--border);
+  border-radius: 10px; background: var(--bg-2);
+}
+.stat-chip small { display: block; color: var(--muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; }
+.stat-chip b { font-family: var(--font-mono); font-size: 1rem; font-variant-numeric: tabular-nums; }
+
+/* -- mock: bubbles -- */
+.mock-bubbles { position: relative; height: 100%; overflow: hidden; }
+.bubble {
+  position: absolute; border-radius: 50%; display: grid; place-items: center;
+  font-family: var(--font-mono); font-size: 0.72rem; font-weight: 600;
+  border: 1px solid transparent;
+}
+.bubble.up { background: rgba(22,199,132,0.15); border-color: rgba(22,199,132,0.35); color: var(--green); }
+.bubble.down { background: rgba(234,57,67,0.15); border-color: rgba(234,57,67,0.35); color: var(--red); }
+
+/* -- mock: gallery -- */
+.mock-gallery { display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: 1fr; gap: 12px; height: 100%; }
+.shot { border-radius: 10px; border: 1px solid var(--border); }
+.shot-1 { background: linear-gradient(135deg, #16223f, #0e1526 60%, #101a30); }
+.shot-2 { background: linear-gradient(160deg, #0f2430, #0d1420); }
+.shot-3 { background: linear-gradient(145deg, #221a38, #121022); }
+.shot-4 { background: linear-gradient(150deg, #10263f, #0b111e); }
+.shot-5 { background: linear-gradient(140deg, #1d2c1f, #0e150f); }
+.shot-6 { background: linear-gradient(155deg, #2c1d24, #150e12); }
+
+/* ==================== slider (Swiper parallax) ==================== */
+.slider-section { padding-left: 0; padding-right: 0; }
+.slider-head { max-width: var(--maxw); margin: 0 auto clamp(36px, 6vh, 64px); padding: 0 var(--pad); }
+/* Width via calc, not padding — Swiper sizes slides off the container box,
+   so padding would let slides bleed into the gutters. */
+.screens-swiper { width: min(calc(100% - 2 * var(--pad)), 1400px); margin: 0 auto; }
+.screens-swiper .swiper-slide {
+  height: min(72vh, 640px); border-radius: 20px; overflow: hidden; position: relative;
+  border: 1px solid var(--border);
+}
+/* 130% wide + offset left: the -23% parallax x-travel never exposes a gap. */
+.slide-bg { position: absolute; top: -6%; bottom: -6%; left: -15%; width: 130%; }
+.slide-bg-1 { background: radial-gradient(120% 100% at 20% 10%, rgba(79,140,255,0.16), transparent 55%), var(--bg-2); }
+.slide-bg-2 { background: radial-gradient(120% 100% at 80% 15%, rgba(22,199,132,0.13), transparent 55%), var(--bg-2); }
+.slide-bg-3 { background: radial-gradient(120% 100% at 50% 0%, rgba(124,108,255,0.14), transparent 55%), var(--bg-2); }
+.ghost-num {
+  position: absolute; top: 2%; right: 4%;
+  font-family: var(--font-display); font-weight: 700; font-size: 20vw; line-height: 1;
+  color: rgba(230,233,240,0.05); pointer-events: none; user-select: none;
+}
+.slide-inner {
+  position: relative; z-index: 2; height: 100%;
+  display: grid; grid-template-columns: 1.1fr 1fr; gap: clamp(20px, 4vw, 56px);
+  align-items: center; padding: clamp(24px, 5vw, 64px);
+}
+.slide-copy .eyebrow { margin-bottom: 12px; }
+.slide-copy h3 { font-size: clamp(1.6rem, 3.2vw, 2.6rem); font-weight: 700; margin-bottom: 12px; }
+.slide-copy p { color: var(--muted); max-width: 44ch; }
+.slide-panel {
+  background: rgba(17,21,31,0.85); border: 1px solid var(--border); border-radius: 14px;
+  padding: 18px; box-shadow: 0 24px 60px -28px rgba(0,0,0,0.65);
+}
+/* Custom controls: ghost circles + mono fraction + accent progressbar. */
+.slider-controls {
+  max-width: var(--maxw); margin: 22px auto 0; padding: 0 var(--pad);
+  display: flex; align-items: center; gap: 18px;
+}
+.sw-btn {
+  width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--border);
+  background: transparent; color: var(--text); display: grid; place-items: center;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+.sw-btn:hover { border-color: var(--accent); color: var(--accent); }
+.sw-btn svg { width: 18px; height: 18px; }
+.sw-fraction { font-family: var(--font-mono); font-size: 0.85rem; color: var(--muted); min-width: 64px; text-align: center; }
+/* The pagination el lives in .slider-controls (outside .swiper), so Swiper's
+   absolute-position default must be overridden to sit in the flex row. */
+.slider-controls .swiper-pagination-progressbar {
+  position: static; flex: 1; height: 2px; background: var(--border); border-radius: 2px; overflow: hidden;
+}
+.slider-controls .swiper-pagination-progressbar .swiper-pagination-progressbar-fill { background: var(--accent); }
+
+/* ==================== stats band ==================== */
+.stats-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 16px; }
+.stat-card {
+  background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: clamp(20px, 3vw, 32px); display: flex; flex-direction: column; gap: 8px; justify-content: center;
+}
+.stat-card small { color: var(--muted); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.12em; }
+.stat-value {
+  font-family: var(--font-mono); font-weight: 600; font-variant-numeric: tabular-nums;
+  font-size: clamp(1.5rem, 3vw, 2.2rem); line-height: 1.1;
+}
+.stat-wide .stat-value { font-size: clamp(2.2rem, 5vw, 3.6rem); }
+.stat-wide p { color: var(--muted); font-size: 0.92rem; max-width: 40ch; }
+.stat-change { font-family: var(--font-mono); font-size: 0.9rem; margin-left: 10px; }
+
+/* ==================== privacy ==================== */
+.privacy-grid { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(32px, 6vw, 80px); align-items: center; }
+.badges { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 24px; }
+.badge {
+  font-family: var(--font-mono); font-size: 0.78rem; color: var(--muted);
+  border: 1px solid var(--border); border-radius: 999px; padding: 8px 14px;
+}
+.privacy-visual { position: relative; }
+.privacy-window {
+  background: var(--bg-3); border: 1px solid var(--border); border-radius: var(--radius);
+  overflow: hidden; position: relative;
+}
+.privacy-body { padding: clamp(24px, 4vw, 40px); position: relative; }
+/* Glow is its own blurred radial div (opacity/scale tweened) — never a
+   box-shadow animation, which would repaint the whole card every frame. */
+.lock-glow {
+  position: absolute; width: 220px; height: 220px; left: 50%; top: 34%;
+  transform: translate(-50%, -50%); border-radius: 50%; opacity: 0.35;
+  background: radial-gradient(closest-side, rgba(79,140,255,0.4), transparent 70%);
+  pointer-events: none;
+}
+.lock { display: block; margin: 8px auto 24px; width: 56px; height: 56px; color: var(--accent); position: relative; }
+.code-snippet {
+  font-family: var(--font-mono); font-size: 0.8rem; line-height: 1.8;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+  padding: 16px 20px; overflow-x: auto; position: relative;
+}
+.code-snippet .k { color: var(--accent); }
+.code-snippet .s { color: var(--green); }
+.code-snippet .c { color: var(--muted); }
+
+/* ==================== final cta ==================== */
+.final-cta {
+  min-height: 80vh; display: flex; align-items: center; justify-content: center;
+  text-align: center; position: relative; overflow: hidden;
+}
+.ghost-wordmark {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  font-family: var(--font-display); font-weight: 700; font-size: 25vw; line-height: 1;
+  color: rgba(230,233,240,0.03); white-space: nowrap; pointer-events: none; user-select: none;
+}
+.final-inner { position: relative; z-index: 2; }
+.final-inner h2 { font-size: clamp(2.5rem, 6vw, 5rem); margin-bottom: 18px; }
+.final-inner p { color: var(--muted); margin-bottom: 36px; }
+.btn-xl { min-height: 56px; padding: 0 40px; font-size: 1.1rem; }
+
+/* ==================== footer ==================== */
+footer {
+  border-top: 1px solid var(--border); padding: 28px var(--pad); margin-top: auto;
+}
+.footer-inner {
+  max-width: var(--maxw); margin: 0 auto;
+  display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap;
+}
+.footer-inner, .footer-links a { color: var(--muted); font-size: 0.85rem; }
+.footer-links { display: flex; gap: 4px; list-style: none; }
+.footer-links a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 10px; transition: color 0.2s ease; }
+.footer-links a:hover { color: var(--accent); }
+.footer-brand { font-family: var(--font-display); font-weight: 700; color: var(--text); }
+.footer-note { font-size: 0.75rem; }
+
+/* ==================== responsive ==================== */
+@media (max-width: 1024px) {
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+  .stat-wide { grid-column: 1 / -1; }
+}
+@media (max-width: 899px) {
+  .nav-links { display: none; } /* anchors are duplicated in the footer */
+  /* Pinned scrub is desktop-only: below 900px the stage unpins and the five
+     screens flow as labelled vertical cards (mobile spec, brief §6.3). */
+  #showcase-stage { grid-template-columns: 1fr; min-height: 0; align-items: start; }
+  .tab-col { display: none; }
+  .screens { height: auto; display: flex; flex-direction: column; gap: 20px; padding: 20px; }
+  .screen { position: static; opacity: 1 !important; visibility: visible !important; padding: 0; will-change: auto; }
+  .screen-label {
+    display: block; font-family: var(--font-mono); font-size: 0.78rem; color: var(--accent);
+    text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 10px;
+  }
+  .mock-bubbles, .mock-gallery { height: 260px; }
+  .mock-portfolio { grid-template-columns: 1fr; justify-items: center; }
+  .slide-inner { grid-template-columns: 1fr; align-content: center; gap: 20px; }
+  .slide-panel { display: none; } /* copy + ghost number carry the slide on small screens */
+  .screens-swiper .swiper-slide { height: min(60vh, 480px); }
+  .privacy-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 560px) {
+  .hero h1 { font-size: 13vw; } /* keeps the 11-char wordmark on one line at 390px */
+  .stats-grid { grid-template-columns: 1fr; }
+  .hero-ctas .btn { width: 100%; }
+  .hero-ctas { width: 100%; flex-direction: column; }
+  .btn-wrap { width: 100%; }
+  .btn-wrap .btn { width: 100%; }
+}
+
+/* ==================== reduced motion ==================== */
+/* JS side skips ScrollSmoother/pin/tweens via gsap.matchMedia; this is the
+   CSS half: kill keyframes and let everything render in its final state.
+   The ticker simply overflows behind its edge fade masks. */
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+  .screen { position: static; opacity: 1 !important; visibility: visible !important; will-change: auto; }
+  .screens { height: auto; display: flex; flex-direction: column; gap: 20px; padding: 20px; }
+  .screen-label { display: block; font-family: var(--font-mono); font-size: 0.78rem; color: var(--accent); text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 10px; }
+  .tab-col { display: none; }
+  #showcase-stage { grid-template-columns: 1fr; min-height: 0; }
+  .scroll-cue { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- ==================== fixed layer (OUTSIDE the smooth wrapper) ==================== -->
+<!-- ScrollSmoother scrolls #smooth-content via a CSS transform; per the GSAP
+     docs a transform creates a containing block, so position:fixed elements
+     INSIDE the wrapper would pin to the moving content instead of the
+     viewport. Nav, skip link and the noise overlay therefore live up here.
+     (Same rule the app documents around its own #smooth-wrapper.) -->
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header id="nav" aria-label="Main navigation">
+  <div class="nav-inner">
+    <a class="brand" href="#top" aria-label="CryptoFolio home">🪙 Crypto<span class="accent">Folio</span></a>
+    <nav aria-label="Sections">
+      <ul class="nav-links">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#screens">Screens</a></li>
+        <li><a href="#privacy">Privacy</a></li>
+      </ul>
+    </nav>
+    <a class="btn btn-primary nav-cta" href="index.html">Launch App</a>
+  </div>
+</header>
+
+<div id="noise" aria-hidden="true"></div>
+
+<!-- ==================== smooth wrapper ==================== -->
+<div id="smooth-wrapper">
+<div id="smooth-content">
+<main id="main">
+
+<!-- ==================== hero ==================== -->
+<section class="hero" id="top" aria-label="Intro">
+  <!-- data-speed <1 = layers fall behind on scroll; ScrollSmoother reads the
+       attributes because effects:true. -->
+  <div class="blob blob-blue" data-speed="0.7" aria-hidden="true"></div>
+  <div class="blob blob-green" data-speed="0.7" aria-hidden="true"></div>
+  <div class="dot-grid" data-speed="0.85" aria-hidden="true"></div>
+
+  <!-- data-speed/lag on the wrapper, float tween on the inner chip (see CSS). -->
+  <div class="chip-pos chip-btc" data-speed="0.9" data-lag="0.2" aria-hidden="true">
+    <div class="coin-chip"><span class="dot"></span><span class="sym">BTC</span><span>$117,240</span><span class="up">+2.1%</span></div>
+  </div>
+  <div class="chip-pos chip-eth" data-speed="1.1" data-lag="0.3" aria-hidden="true">
+    <div class="coin-chip"><span class="dot"></span><span class="sym">ETH</span><span>$3,912</span><span class="up">+3.4%</span></div>
+  </div>
+  <div class="chip-pos chip-sol" data-speed="1.15" data-lag="0.4" aria-hidden="true">
+    <div class="coin-chip"><span class="dot"></span><span class="sym">SOL</span><span>$176</span><span class="down">-1.2%</span></div>
+  </div>
+
+  <div class="hero-stack">
+    <span class="eyebrow hero-stagger">Client-side crypto portfolio</span>
+    <h1 aria-label="CryptoFolio"><span class="coin" aria-hidden="true">🪙</span><span class="wordmark">Crypto<span class="accent">Folio</span></span></h1>
+    <p class="hero-sub hero-stagger">Track, analyze and visualize your portfolio — every byte stays in your browser.</p>
+    <div class="hero-ctas hero-stagger">
+      <span class="btn-wrap"><span class="btn-glow" aria-hidden="true"></span><a class="btn btn-primary" href="index.html">Launch App</a></span>
+      <a class="btn btn-ghost" href="#features">Explore features ↓</a>
+    </div>
+  </div>
+
+  <div class="scroll-cue" aria-hidden="true"><span class="cue-dot"></span></div>
+</section>
+
+<!-- ==================== ticker ==================== -->
+<!-- LIVE DATA HOOK: ticker. Backend agent — replace the innerHTML of
+     #ticker-track with 10 real items in exactly this shape:
+       <div class="ticker-item"><img class="ticker-logo" src="..." alt="">SYM $price <span class="up|down">±x.x%</span></div>
+     Write the 10 items ONCE (no duplication): a MutationObserver in the init
+     script re-clones them (aria-hidden) so the CSS -50% marquee keeps looping
+     seamlessly. The animation lives in CSS on .ticker-track and runs
+     identically for skeletons and live items — do not touch it, do not
+     re-init anything. Keep the wrapper ids/classes as-is. -->
+<section class="ticker-band" aria-label="Live market ticker">
+  <div id="ticker-track" class="ticker-track">
+    <div class="ticker-item skeleton" aria-hidden="true"><span class="sk sk-logo"></span><span class="sk sk-bar sk-w1"></span><span class="sk sk-bar sk-w2"></span><span class="sk sk-bar sk-w3"></span></div>
+    <div class="ticker-item skeleton" aria-hidden="true"><span class="sk sk-logo"></span><span class="sk sk-bar sk-w1"></span><span class="sk sk-bar sk-w2"></span><span class="sk sk-bar sk-w3"></span></div>
+    <div class="ticker-item skeleton" aria-hidden="true"><span class="sk sk-logo"></span><span class="sk sk-bar sk-w1"></span><span class="sk sk-bar sk-w2"></span><span class="sk sk-bar sk-w3"></span></div>
+    <div class="ticker-item skeleton" aria-hidden="true"><span class="sk sk-logo"></span><span class="sk sk-bar sk-w1"></span><span class="sk sk-bar sk-w2"></span><span class="sk sk-bar sk-w3"></span></div>
+    <div class="ticker-item skeleton" aria-hidden="true"><span class="sk sk-logo"></span><span class="sk sk-bar sk-w1"></span><span class="sk sk-bar sk-w2"></span><span class="sk sk-bar sk-w3"></span></div>
+    <div class="ticker-item skeleton" aria-hidden="true"><span class="sk sk-logo"></span><span class="sk sk-bar sk-w1"></span><span class="sk sk-bar sk-w2"></span><span class="sk sk-bar sk-w3"></span></div>
+    <div class="ticker-item skeleton" aria-hidden="true"><span class="sk sk-logo"></span><span class="sk sk-bar sk-w1"></span><span class="sk sk-bar sk-w2"></span><span class="sk sk-bar sk-w3"></span></div>
+    <div class="ticker-item skeleton" aria-hidden="true"><span class="sk sk-logo"></span><span class="sk sk-bar sk-w1"></span><span class="sk sk-bar sk-w2"></span><span class="sk sk-bar sk-w3"></span></div>
+    <div class="ticker-item skeleton" aria-hidden="true"><span class="sk sk-logo"></span><span class="sk sk-bar sk-w1"></span><span class="sk sk-bar sk-w2"></span><span class="sk sk-bar sk-w3"></span></div>
+    <div class="ticker-item skeleton" aria-hidden="true"><span class="sk sk-logo"></span><span class="sk sk-bar sk-w1"></span><span class="sk sk-bar sk-w2"></span><span class="sk sk-bar sk-w3"></span></div>
+  </div>
+</section>
+
+<!-- ==================== showcase (pinned 5-tab scrub) ==================== -->
+<section class="section" id="features" aria-label="Features">
+  <div class="showcase-head">
+    <span class="eyebrow reveal">The product</span>
+    <h2 class="h2 reveal">One app. Five views.</h2>
+    <p class="section-sub reveal">Everything lives in a single page — switch views, not websites.</p>
+  </div>
+
+  <div id="showcase-stage">
+    <div class="tab-col">
+    <span class="tab-rail" aria-hidden="true"></span><span class="tab-rail-fill" aria-hidden="true"></span>
+    <ul class="tab-list">
+      <li class="tab-item active"><span class="tab-num">01</span><h3>Market</h3><p>Top coins, prices and movers — a CoinGecko-style table, live.</p></li>
+      <li class="tab-item"><span class="tab-num">02</span><h3>Portfolio</h3><p>Your holdings, cost basis and P/L, stored only in this browser.</p></li>
+      <li class="tab-item"><span class="tab-num">03</span><h3>Analytics</h3><p>Allocation and performance charts that update as you do.</p></li>
+      <li class="tab-item"><span class="tab-num">04</span><h3>Bubbles</h3><p>The whole market as floating bubbles, sized by momentum.</p></li>
+      <li class="tab-item"><span class="tab-num">05</span><h3>Gallery</h3><p>A wall of the coins and collections you care about.</p></li>
+    </ul>
+    </div>
+
+    <div class="browser reveal">
+      <div class="browser-bar" aria-hidden="true">
+        <span class="tl-dot"></span><span class="tl-dot"></span><span class="tl-dot"></span>
+        <span class="browser-url">cryptofolio.local/index.html</span>
+      </div>
+      <div class="screens">
+
+        <div class="screen screen-active" data-screen="market">
+          <span class="screen-label">01 · Market</span>
+          <div class="mock-row"><span class="dot" style="background:#f7931a"></span><span class="name">Bitcoin<small>BTC</small></span><span>$117,240</span><span class="pill up">+2.1%</span><svg class="spark" viewBox="0 0 70 22" aria-hidden="true"><path class="up-line" d="M0 16 L10 14 L20 15 L30 10 L40 11 L50 7 L60 8 L70 4"/></svg></div>
+          <div class="mock-row"><span class="dot" style="background:#627eea"></span><span class="name">Ethereum<small>ETH</small></span><span>$3,912</span><span class="pill up">+3.4%</span><svg class="spark" viewBox="0 0 70 22" aria-hidden="true"><path class="up-line" d="M0 18 L10 15 L20 16 L30 12 L40 13 L50 9 L60 10 L70 5"/></svg></div>
+          <div class="mock-row"><span class="dot" style="background:#14f195"></span><span class="name">Solana<small>SOL</small></span><span>$176</span><span class="pill down">-1.2%</span><svg class="spark" viewBox="0 0 70 22" aria-hidden="true"><path class="down-line" d="M0 6 L10 8 L20 7 L30 11 L40 10 L50 14 L60 13 L70 17"/></svg></div>
+          <div class="mock-row"><span class="dot" style="background:#f3ba2f"></span><span class="name">BNB<small>BNB</small></span><span>$742</span><span class="pill up">+0.8%</span><svg class="spark" viewBox="0 0 70 22" aria-hidden="true"><path class="up-line" d="M0 14 L10 13 L20 14 L30 11 L40 12 L50 10 L60 11 L70 8"/></svg></div>
+          <div class="mock-row"><span class="dot" style="background:#23292f"></span><span class="name">XRP<small>XRP</small></span><span>$3.18</span><span class="pill down">-0.4%</span><svg class="spark" viewBox="0 0 70 22" aria-hidden="true"><path class="down-line" d="M0 9 L10 10 L20 9 L30 12 L40 11 L50 13 L60 12 L70 15"/></svg></div>
+        </div>
+
+        <div class="screen" data-screen="portfolio">
+          <span class="screen-label">02 · Portfolio</span>
+          <div class="mock-portfolio">
+            <div class="donut" role="img" aria-label="Portfolio allocation donut chart">
+              <span class="total"><b>$48,395</b><small>total value</small></span>
+            </div>
+            <div>
+              <div class="holding"><span class="h-sym"><span class="dot" style="background:#f7931a"></span>BTC</span><span>0.24</span><span class="up">+$1,204</span></div>
+              <div class="holding"><span class="h-sym"><span class="dot" style="background:#627eea"></span>ETH</span><span>3.1</span><span class="up">+$688</span></div>
+              <div class="holding"><span class="h-sym"><span class="dot" style="background:#14f195"></span>SOL</span><span>41</span><span class="down">-$112</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="screen" data-screen="analytics">
+          <span class="screen-label">03 · Analytics</span>
+          <div class="mock-analytics">
+            <svg class="area-chart" viewBox="0 0 400 160" preserveAspectRatio="none" role="img" aria-label="Portfolio value area chart trending up">
+              <defs><linearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#4f8cff" stop-opacity="0.35"/>
+                <stop offset="1" stop-color="#4f8cff" stop-opacity="0"/>
+              </linearGradient></defs>
+              <path d="M0 120 C40 110 60 128 90 112 C120 96 140 104 170 84 C200 64 220 76 250 58 C280 40 310 52 340 34 C360 22 380 26 400 18 L400 160 L0 160 Z" fill="url(#areaFill)"/>
+              <path d="M0 120 C40 110 60 128 90 112 C120 96 140 104 170 84 C200 64 220 76 250 58 C280 40 310 52 340 34 C360 22 380 26 400 18" fill="none" stroke="#4f8cff" stroke-width="2"/>
+            </svg>
+            <div class="stat-chips">
+              <div class="stat-chip"><small>24h P/L</small><b class="up">+$1,780</b></div>
+              <div class="stat-chip"><small>Best asset</small><b>ETH</b></div>
+              <div class="stat-chip"><small>Allocation</small><b>6 coins</b></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="screen" data-screen="bubbles">
+          <span class="screen-label">04 · Bubbles</span>
+          <div class="mock-bubbles" aria-hidden="true">
+            <span class="bubble up bub-f" style="width:96px;height:96px;top:8%;left:6%">BTC</span>
+            <span class="bubble up" style="width:72px;height:72px;top:12%;left:44%">ETH</span>
+            <span class="bubble down bub-f" style="width:58px;height:58px;top:6%;right:10%">SOL</span>
+            <span class="bubble up" style="width:48px;height:48px;top:48%;left:26%">BNB</span>
+            <span class="bubble down" style="width:64px;height:64px;top:44%;right:26%">XRP</span>
+            <span class="bubble up bub-f" style="width:42px;height:42px;bottom:12%;left:10%">ADA</span>
+            <span class="bubble down" style="width:38px;height:38px;bottom:8%;left:48%">DOGE</span>
+            <span class="bubble up bub-f" style="width:52px;height:52px;bottom:14%;right:8%">LINK</span>
+            <span class="bubble up" style="width:34px;height:34px;top:30%;left:64%">DOT</span>
+          </div>
+        </div>
+
+        <div class="screen" data-screen="gallery">
+          <span class="screen-label">05 · Gallery</span>
+          <div class="mock-gallery" aria-hidden="true">
+            <div class="shot shot-1"></div><div class="shot shot-2"></div><div class="shot shot-3"></div>
+            <div class="shot shot-4"></div><div class="shot shot-5"></div><div class="shot shot-6"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== slider (Swiper parallax) ==================== -->
+<section class="section slider-section" id="screens" aria-label="Workflows">
+  <div class="slider-head">
+    <span class="eyebrow reveal">Workflows</span>
+    <h2 class="h2 reveal">See it in motion.</h2>
+    <p class="section-sub reveal">Three moves cover most days: track, analyze, visualize.</p>
+  </div>
+
+  <!-- Per-layer data-swiper-parallax = px/% travel per transition; bigger
+       offset + longer duration on foreground layers sells the depth. -->
+  <div class="swiper screens-swiper">
+    <div class="swiper-wrapper">
+
+      <div class="swiper-slide">
+        <div class="slide-bg slide-bg-1" data-swiper-parallax="-23%" aria-hidden="true"></div>
+        <span class="ghost-num" data-swiper-parallax="-35%" aria-hidden="true">01</span>
+        <div class="slide-inner">
+          <div class="slide-copy">
+            <span class="eyebrow" data-swiper-parallax="-150">Track</span>
+            <h3 data-swiper-parallax="-200" data-swiper-parallax-duration="1000">Add holdings in two clicks</h3>
+            <p data-swiper-parallax="-300" data-swiper-parallax-duration="1200">Search any coin, type an amount, done. Cost basis and value update instantly — no sign-up between you and your numbers.</p>
+          </div>
+          <div class="slide-panel" data-swiper-parallax="-100" aria-hidden="true">
+            <div class="holding"><span class="h-sym"><span class="dot" style="background:#f7931a"></span>BTC</span><span>0.24</span><span class="up">+$1,204</span></div>
+            <div class="holding"><span class="h-sym"><span class="dot" style="background:#627eea"></span>ETH</span><span>3.1</span><span class="up">+$688</span></div>
+            <div class="holding"><span class="h-sym"><span class="dot" style="background:#14f195"></span>SOL</span><span>41</span><span class="down">-$112</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="swiper-slide">
+        <div class="slide-bg slide-bg-2" data-swiper-parallax="-23%" aria-hidden="true"></div>
+        <span class="ghost-num" data-swiper-parallax="-35%" aria-hidden="true">02</span>
+        <div class="slide-inner">
+          <div class="slide-copy">
+            <span class="eyebrow" data-swiper-parallax="-150">Analyze</span>
+            <h3 data-swiper-parallax="-200" data-swiper-parallax-duration="1000">Allocation &amp; P/L at a glance</h3>
+            <p data-swiper-parallax="-300" data-swiper-parallax-duration="1200">A donut for allocation, an area chart for history, movers ranked by damage done. Your whole position in one screen.</p>
+          </div>
+          <div class="slide-panel" data-swiper-parallax="-100" aria-hidden="true">
+            <div class="donut" style="margin:0 auto"><span class="total"><b>$48,395</b><small>6 assets</small></span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="swiper-slide">
+        <div class="slide-bg slide-bg-3" data-swiper-parallax="-23%" aria-hidden="true"></div>
+        <span class="ghost-num" data-swiper-parallax="-35%" aria-hidden="true">03</span>
+        <div class="slide-inner">
+          <div class="slide-copy">
+            <span class="eyebrow" data-swiper-parallax="-150">Visualize</span>
+            <h3 data-swiper-parallax="-200" data-swiper-parallax-duration="1000">The market as living bubbles</h3>
+            <p data-swiper-parallax="-300" data-swiper-parallax-duration="1200">Hundreds of coins floating by momentum — green swells, red sinks. Spot the day's story in one glance.</p>
+          </div>
+          <div class="slide-panel" data-swiper-parallax="-100" aria-hidden="true" style="position:relative;height:240px">
+            <span class="bubble up" style="width:84px;height:84px;top:10%;left:8%">BTC</span>
+            <span class="bubble down" style="width:56px;height:56px;top:16%;right:14%">SOL</span>
+            <span class="bubble up" style="width:64px;height:64px;bottom:14%;left:34%">ETH</span>
+            <span class="bubble up" style="width:40px;height:40px;bottom:20%;right:10%">LINK</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="slider-controls">
+    <button class="sw-btn sw-prev" type="button" aria-label="Previous slide">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <button class="sw-btn sw-next" type="button" aria-label="Next slide">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+    </button>
+    <span class="sw-fraction mono" aria-hidden="true"><span class="sw-cur">01</span> / <span class="sw-total">03</span></span>
+    <div class="swiper-pagination sw-progress"></div>
+  </div>
+</section>
+
+<!-- ==================== stats band ==================== -->
+<!-- LIVE DATA HOOK: global stats. Backend agent — when your fetch lands,
+     for #stat-mcap, #stat-vol, #stat-btcdom, #stat-mcap-change do BOTH:
+       1. overwrite data-target / data-decimals / data-prefix / data-suffix
+          (numeric target, e.g. data-target="3.42" prefix "$" suffix "T"),
+       2. write the formatted string into textContent (covers reduced-motion
+          users and the case where the count-up already played — elements
+          that played carry data-counted="1").
+     Swap #stat-mcap-change's up|down class to match the sign. The count-up
+     reads the data-* attributes at reveal time, so an early update animates
+     to the live number. Values below are static fallbacks (page must read
+     fine offline). -->
+<section class="section" aria-label="Global market stats">
+  <div class="inner">
+    <div class="stats-grid">
+      <div class="stat-card stat-wide reveal">
+        <small>Total crypto market cap</small>
+        <div><span class="stat-value" id="stat-mcap" data-target="3.42" data-decimals="2" data-prefix="$" data-suffix="T">$3.42T</span><span class="stat-change up" id="stat-mcap-change" data-target="2.4" data-decimals="1" data-prefix="+" data-suffix="%">+2.4%</span></div>
+        <p>The market never sleeps. CryptoFolio keeps the numbers moving without ever asking who you are.</p>
+      </div>
+      <div class="stat-card reveal">
+        <small>24h volume</small>
+        <span class="stat-value" id="stat-vol" data-target="184" data-decimals="0" data-prefix="$" data-suffix="B">$184B</span>
+      </div>
+      <div class="stat-card reveal">
+        <small>BTC dominance</small>
+        <span class="stat-value" id="stat-btcdom" data-target="58.6" data-decimals="1" data-suffix="%">58.6%</span>
+      </div>
+      <div class="stat-card reveal">
+        <small>Coins tracked</small>
+        <span class="stat-value" data-target="10000" data-decimals="0" data-suffix="+">10,000+</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== privacy ==================== -->
+<section class="section" id="privacy" aria-label="Privacy">
+  <div class="inner privacy-grid">
+    <div>
+      <span class="eyebrow reveal">Private by design</span>
+      <h2 class="h2 reveal">Your data never leaves this browser.</h2>
+      <p class="section-sub reveal">No accounts, no servers, no tracking pixels. Your portfolio lives in localStorage on this machine — export it, wipe it, it's yours. The only network traffic is public price data flowing in.</p>
+      <div class="badges reveal">
+        <span class="badge">0 accounts</span>
+        <span class="badge">0 servers</span>
+        <span class="badge">100% local</span>
+      </div>
+    </div>
+    <div class="privacy-visual">
+      <div class="privacy-window">
+        <div class="browser-bar" aria-hidden="true">
+          <span class="tl-dot"></span><span class="tl-dot"></span><span class="tl-dot"></span>
+          <span class="browser-url">devtools — Application ▸ Local Storage</span>
+        </div>
+        <div class="privacy-body">
+          <span class="lock-glow" aria-hidden="true"></span>
+          <svg class="lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Padlock"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/><circle cx="12" cy="15" r="1.4"/></svg>
+          <pre class="code-snippet" aria-label="localStorage example"><code><span class="k">localStorage</span> {
+  <span class="s">"cf_portfolio"</span>: <span class="s">"[{ btc: 0.24, eth: 3.1 … }]"</span>,
+  <span class="s">"cf_prices_cache"</span>: <span class="s">"…"</span>  <span class="c">// 5-min TTL</span>
+}
+<span class="c">// that's it. that's everything we know.</span></code></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== final cta ==================== -->
+<section class="final-cta" aria-label="Get started">
+  <span class="ghost-wordmark" data-speed="0.9" aria-hidden="true">CryptoFolio</span>
+  <div class="blob blob-blue blob-strong" style="top:auto; bottom:-30%; left:20%" data-speed="0.8" aria-hidden="true"></div>
+  <div class="final-inner">
+    <h2 class="reveal">Your portfolio.<br>Your rules.</h2>
+    <p class="reveal">Open the app — it's already yours. Nothing to install, no one to sign up with.</p>
+    <span class="btn-wrap reveal"><span class="btn-glow" aria-hidden="true"></span><a class="btn btn-primary btn-xl" href="index.html">Launch App →</a></span>
+  </div>
+</section>
+
+<!-- ==================== footer ==================== -->
+<footer>
+  <div class="footer-inner">
+    <span><span class="footer-brand">🪙 Crypto<span class="accent">Folio</span></span> · © 2026 — data stays in your browser.</span>
+    <ul class="footer-links">
+      <li><a href="index.html">Launch App</a></li>
+      <li><a href="#features">Features</a></li>
+      <li><a href="#privacy">Privacy</a></li>
+    </ul>
+    <span class="footer-note">Market data by CoinGecko · Not financial advice.</span>
+  </div>
+</footer>
+
+</main>
+</div><!-- /#smooth-content -->
+</div><!-- /#smooth-wrapper -->
+
+<!-- ==================== vendor ==================== -->
+<!-- GSAP 3.15 — SplitText ships free in core distribution since 3.13. -->
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/ScrollSmoother.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/SplitText.min.js"></script>
+<!-- Swiper 12 bundle (includes Parallax, Navigation, Pagination, A11y). -->
+<script src="https://cdn.jsdelivr.net/npm/swiper@12/swiper-bundle.min.js"></script>
+
+<script>
+/* ==================== boot ==================== */
+/* Same init contract as the app: register everything up front, expose the
+   smoother on window so future scripts can scrollTo() through it. */
+gsap.registerPlugin(ScrollTrigger, ScrollSmoother, SplitText);
+
+const REDUCE = window.matchMedia('(prefers-reduced-motion: reduce)');
+const $  = (s, c) => (c || document).querySelector(s);
+const $$ = (s, c) => gsap.utils.toArray((c || document).querySelectorAll(s));
+
+/* ==================== ticker duplication ==================== */
+/* The marquee itself is a CSS keyframe (translateX(-50%)) — JS only keeps the
+   track's content doubled so -50% lands exactly on a copy of itself. A
+   MutationObserver redoes the clones whenever the backend swaps skeletons for
+   live items, so the animation never needs re-initialising. */
+(() => {
+  const track = document.getElementById('ticker-track');
+  if (!track) return;
+  /* sync()'s own clone mutations must not re-trigger the observer. A flag
+     reset in rAF is not enough: a fresh-cache load resolves in a microtask,
+     so the live swap lands BEFORE the next frame — the observer saw it while
+     the flag was still up and the clones were never rebuilt (gappy loop).
+     takeRecords() drains our records synchronously instead, so only outside
+     writes ever reach the callback. */
+  const obs = new MutationObserver(() => sync());
+  const sync = () => {
+    track.querySelectorAll('.ticker-dup').forEach(n => n.remove());
+    [...track.children].forEach(n => {
+      const c = n.cloneNode(true);
+      c.classList.add('ticker-dup');
+      c.setAttribute('aria-hidden', 'true');
+      track.appendChild(c);
+    });
+    obs.takeRecords(); // swallow the mutations sync() just made
+  };
+  sync();
+  obs.observe(track, { childList: true });
+})();
+
+/* ==================== count-up helper ==================== */
+/* Reads the LIVE DATA HOOK attributes at play time so a backend update that
+   lands before the band scrolls in animates to the real number, not the
+   fallback. data-counted marks played elements (backend then writes
+   textContent directly). */
+function formatStat(el, v) {
+  const dec = +(el.dataset.decimals || 0);
+  return (el.dataset.prefix || '') +
+    v.toLocaleString(undefined, { maximumFractionDigits: dec, minimumFractionDigits: dec }) +
+    (el.dataset.suffix || '');
+}
+function playCountUps(els) {
+  els.forEach((el, i) => {
+    if (el.dataset.counted) return;
+    const proxy = { v: 0 }, target = parseFloat(el.dataset.target || '0');
+    gsap.to(proxy, {
+      v: target, duration: 1.4, ease: 'power1.out', delay: i * 0.15,
+      onUpdate: () => { el.textContent = formatStat(el, proxy.v); },
+      onComplete: () => { el.dataset.counted = '1'; el.textContent = formatStat(el, target); }
+    });
+  });
+}
+
+/* ==================== motion ==================== */
+let heroPlayed = false; // survives matchMedia re-runs (breakpoint flips)
+
+const mm = gsap.matchMedia();
+mm.add({
+  motionOK: '(prefers-reduced-motion: no-preference)',
+  desktop:  '(min-width: 900px)'
+}, (ctx) => {
+  const { motionOK, desktop } = ctx.conditions;
+
+  /* Reduced motion: no smoother, no pin, no tweens. Numbers snap straight to
+     their targets so the band never reads as half-loaded. */
+  if (!motionOK) {
+    $$('.stat-value, .stat-change').forEach(el => {
+      if (el.dataset.target) el.textContent = formatStat(el, parseFloat(el.dataset.target));
+    });
+    return;
+  }
+
+  /* -- smoother -- */
+  /* Wrapper/content div pair is in the markup above; effects:true switches on
+     the data-speed / data-lag parallax attributes used across the page. */
+  window.smoother = ScrollSmoother.create({
+    wrapper: '#smooth-wrapper',
+    content: '#smooth-content',
+    smooth: 1.2,
+    effects: true,
+    smoothTouch: 0.1
+  });
+
+  /* -- hero intro (once) -- */
+  /* Waits for fonts so SplitText measures the final glyphs — splitting before
+     Space Grotesk arrives would mask the fallback font's metrics. */
+  if (!heroPlayed) {
+    gsap.set('.hero-stagger, .coin-chip, .scroll-cue', { autoAlpha: 0 });
+    gsap.set('.hero h1', { autoAlpha: 0 });
+    document.fonts.ready.then(() => {
+      if (heroPlayed || REDUCE.matches) { // user may have flipped the OS toggle mid-load
+        gsap.set('.hero h1, .hero-stagger, .coin-chip, .scroll-cue', { clearProps: 'all' });
+        return;
+      }
+      heroPlayed = true;
+      const split = SplitText.create('.wordmark', { type: 'chars', mask: 'chars' });
+      gsap.set('.hero h1', { autoAlpha: 1 });
+      gsap.timeline({ delay: 0.15 })
+        .from(split.chars, { yPercent: 110, duration: 0.9, ease: 'power4.out', stagger: 0.035 })
+        .from('.hero h1 .coin', { yPercent: 60, autoAlpha: 0, duration: 0.6, ease: 'power3.out' }, 0.2)
+        .to('.hero-stagger', { autoAlpha: 1, y: 0, duration: 0.7, ease: 'power3.out', stagger: 0.12, startAt: { y: 24 } }, '-=0.5')
+        .to('.coin-chip', { autoAlpha: 1, duration: 0.6, stagger: 0.1 }, '-=0.4')
+        .to('.scroll-cue', { autoAlpha: 1, duration: 0.5 }, '<');
+      ScrollTrigger.refresh(); // SplitText wrapped the h1 in masks - re-measure
+    });
+  }
+
+  /* -- ambient loops -- */
+  /* Infinite-tween budget (brief cap: 10): 2 blobs + 3 chips + 1 cue dot +
+     1 lock glow + 3 bubbles = 10. The 4th .bub-f stays still on purpose.
+     Blob drift avoids y: ScrollSmoother's data-speed effect owns transform-y
+     on these elements, and GSAP composes x/scale with it conflict-free. */
+  $$('.blob').forEach((b, i) => gsap.to(b, {
+    x: '+=40', scale: 1.12, duration: i ? 12 : 9,
+    ease: 'sine.inOut', yoyo: true, repeat: -1
+  }));
+  $$('.coin-chip').forEach((c, i) => gsap.to(c, {
+    y: '+=12', duration: 4 + i, ease: 'sine.inOut', yoyo: true, repeat: -1
+  }));
+  gsap.to('.cue-dot', { y: 10, autoAlpha: 0, duration: 1.2, repeat: -1, repeatDelay: 0.4, ease: 'power2.in' });
+  $$('.mock-bubbles .bub-f').slice(0, 3).forEach((b, i) => gsap.to(b, {
+    y: '+=10', duration: 3.5 + i, ease: 'sine.inOut', yoyo: true, repeat: -1
+  }));
+  gsap.to('.lock-glow', { opacity: 0.7, scale: 1.06, duration: 2.4, ease: 'sine.inOut', yoyo: true, repeat: -1 });
+
+  /* -- generic section reveals -- */
+  /* One trigger per section, staggering its own .reveal children. data-revealed
+     keeps already-seen elements visible if this context re-runs on a
+     breakpoint flip. */
+  $$('main section').forEach(section => {
+    const items = $$('.reveal:not([data-revealed])', section);
+    if (!items.length) return;
+    gsap.from(items, {
+      y: 40, autoAlpha: 0, duration: 0.8, ease: 'power3.out', stagger: 0.1,
+      scrollTrigger: { trigger: section, start: 'top 80%', once: true },
+      onComplete: () => items.forEach(el => { el.dataset.revealed = '1'; })
+    });
+  });
+
+  /* -- stat count-ups -- */
+  ScrollTrigger.create({
+    trigger: '.stats-grid', start: 'top 75%', once: true,
+    onEnter: () => playCountUps($$('.stat-value, .stat-change'))
+  });
+
+  /* -- privacy card wipe -- */
+  const pv = $('.privacy-visual');
+  if (pv && !pv.dataset.revealed) {
+    gsap.fromTo(pv,
+      { clipPath: 'inset(0 0 100% 0)' },
+      { clipPath: 'inset(0 0 0% 0)', duration: 1.0, ease: 'power4.inOut',
+        scrollTrigger: { trigger: pv, start: 'top 70%', once: true },
+        onComplete: () => { pv.dataset.revealed = '1'; gsap.set(pv, { clearProps: 'clipPath' }); } });
+  }
+
+  /* -- pinned 5-tab showcase (desktop only; mobile stacks the screens) -- */
+  if (desktop) {
+    const screens = $$('.screen');
+    const items = $$('.tab-item');
+    gsap.set(screens.slice(1), { autoAlpha: 0 });
+    const tl = gsap.timeline({
+      scrollTrigger: {
+        trigger: '#showcase-stage', start: 'top top', end: '+=400%',
+        pin: true, scrub: 1, anticipatePin: 1,
+        onUpdate(self) { // active list item follows scrub progress in fifths
+          const idx = Math.min(4, Math.floor(self.progress * 5));
+          items.forEach((it, i) => it.classList.toggle('active', i === idx));
+        }
+      }
+    });
+    tl.to('.tab-rail-fill', { scaleY: 1, ease: 'none', duration: 5 }, 0);
+    for (let i = 1; i < 5; i++) { // crossfade i-1 -> i at timeline second i
+      tl.to(screens[i - 1], { autoAlpha: 0, yPercent: -6, scale: 0.96, duration: 0.35 }, i);
+      tl.fromTo(screens[i], { autoAlpha: 0, yPercent: 8 },
+        { autoAlpha: 1, yPercent: 0, duration: 0.45 }, i + 0.1);
+    }
+  }
+});
+
+/* ==================== nav solidify ==================== */
+/* Class toggle only - the visual change is a CSS transition, so under reduced
+   motion it simply snaps. Works with or without the smoother. */
+ScrollTrigger.create({
+  trigger: 'body', start: 'top -40', end: 'max',
+  toggleClass: { targets: '#nav', className: 'is-scrolled' }
+});
+
+/* ==================== swiper ==================== */
+/* Bundle build: Parallax/Navigation/Pagination/A11y ship inside. speed:0
+   under reduced motion = instant slide swaps, parallax offsets still land. */
+const swiper = new Swiper('.screens-swiper', {
+  parallax: true,
+  speed: REDUCE.matches ? 0 : 900,
+  loop: true,
+  grabCursor: true,
+  navigation: { nextEl: '.sw-next', prevEl: '.sw-prev' },
+  pagination: { el: '.sw-progress', type: 'progressbar' },
+  on: {
+    slideChange(s) { $('.sw-cur').textContent = String(s.realIndex + 1).padStart(2, '0'); }
+  }
+});
+
+/* ==================== hovers ==================== */
+/* Attached once (outside matchMedia so breakpoint flips can't stack
+   duplicate listeners); each handler no-ops under reduced motion. */
+$$('.btn-wrap').forEach(wrap => {
+  const btn = $('.btn', wrap), glow = $('.btn-glow', wrap);
+  wrap.addEventListener('mouseenter', () => {
+    if (REDUCE.matches) return;
+    gsap.to(btn, { scale: 1.04, duration: 0.25, ease: 'power2.out' });
+    gsap.to(glow, { opacity: 1, duration: 0.25 });
+  });
+  wrap.addEventListener('mouseleave', () => {
+    if (REDUCE.matches) return;
+    gsap.to(btn, { scale: 1, duration: 0.25, ease: 'power2.out' });
+    gsap.to(glow, { opacity: 0, duration: 0.3 });
+  });
+  wrap.addEventListener('mousedown', () => {
+    if (!REDUCE.matches) gsap.to(btn, { scale: 0.97, duration: 0.1 });
+  });
+  wrap.addEventListener('mouseup', () => {
+    if (!REDUCE.matches) gsap.to(btn, { scale: 1.04, duration: 0.15 });
+  });
+});
+
+/* ==================== anchors ==================== */
+/* ScrollSmoother owns page scrolling (content is transformed), so in-page
+   anchors must go through smoother.scrollTo - native jumps would scroll a
+   scroller that never moves. Falls back to scrollIntoView when the smoother
+   was skipped (reduced motion). */
+$$('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', (e) => {
+    const target = document.querySelector(a.getAttribute('href'));
+    if (!target) return;
+    e.preventDefault();
+    if (window.smoother) window.smoother.scrollTo(target, !REDUCE.matches, 'top 80px');
+    else target.scrollIntoView({ block: 'start' });
+    // keep keyboard/SR position in sync with the visual jump (skip link etc.)
+    target.setAttribute('tabindex', '-1');
+    target.focus({ preventScroll: true });
+  });
+});
+
+/* ==================== housekeeping ==================== */
+/* Re-measure after web fonts land (layout shifts) and on debounced resize -
+   never per-frame. */
+document.fonts.ready.then(() => ScrollTrigger.refresh());
+let rT;
+window.addEventListener('resize', () => {
+  clearTimeout(rT);
+  rT = setTimeout(() => ScrollTrigger.refresh(), 200);
+});
+</script>
+
+<script>
+/* ==================== live-data.js ==================== */
+/* Swaps the ticker skeletons and stat-band fallbacks for live numbers using
+   the SAME two keyless CoinGecko endpoints and localStorage cache entries as
+   the app (endpoints re-verified against docs.coingecko.com, July 2026), so
+   landing + app spend one shared call budget: cache-first with a 5-minute
+   TTL, at most ONE fetch per endpoint per page load, no polling, no retries.
+   Every failure path leaves the static content exactly as shipped — a
+   landing page never shows an error state. */
+(() => {
+  const TTL = 5 * 60 * 1000; // matches the app's price-cache TTL
+  const MARKETS_URL = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=1&sparkline=true&price_change_percentage=1h%2C24h%2C7d';
+  const GLOBAL_URL = 'https://api.coingecko.com/api/v3/global';
+
+  /* Same {t:<ms>, data:<payload>} envelope under the app's own keys — note
+     the app stores global UNWRAPPED (the API's inner .data object). */
+  const readCache = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
+  const writeCache = (k, data) => { try { localStorage.setItem(k, JSON.stringify({ t: Date.now(), data })); } catch {} };
+
+  /* Fresh cache → zero network. Stale/missing → one fetch, one catch. A
+     failed fetch falls back to the stale copy when one exists (old real
+     prices beat skeletons; the app makes the same trade), else resolves
+     null and the section keeps its placeholder. */
+  const load = async (key, url, unwrap) => {
+    const hit = readCache(key);
+    if (hit && Date.now() - hit.t < TTL) return hit.data;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('HTTP ' + res.status); // CORS-masked failures reject fetch itself and land here too
+      const data = unwrap(await res.json());
+      writeCache(key, data);
+      return data;
+    } catch (e) {
+      console.warn('live-data: ' + url.split('?')[0] + ' unavailable (' + e.message + ')' + (hit ? ' — using stale cache' : ''));
+      return hit ? hit.data : null;
+    }
+  };
+
+  /* API strings pass through innerHTML below, so escape them on principle. */
+  const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  /* >= $1 → 2 decimals + thousands separators; < $1 → 4 significant digits.
+     Intl keeps micro-prices in plain notation where toPrecision would flip
+     to exponential. */
+  const fmtPrice = (p) => p >= 1
+    ? p.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : p.toLocaleString('en-US', { maximumSignificantDigits: 4 });
+
+  const renderTicker = (markets) => {
+    const track = document.getElementById('ticker-track');
+    if (!track || !Array.isArray(markets) || markets.length < 10) return;
+    /* ONE innerHTML write, exactly the skeletons' item shape: the boot
+       script's MutationObserver re-clones the new items for the -50% marquee
+       loop, and the CSS animation never notices the swap. */
+    track.innerHTML = markets.slice(0, 10).map(c => {
+      const chg = +(c.price_change_percentage_24h || 0).toFixed(1) || 0; // trailing || 0 folds "-0.0" into +0
+      return '<div class="ticker-item"><img class="ticker-logo" src="' + esc(c.image || '') + '" alt="">'
+        + esc((c.symbol || '').toUpperCase()) + ' $' + fmtPrice(c.current_price || 0)
+        + ' <span class="' + (chg >= 0 ? 'up' : 'down') + '">' + (chg >= 0 ? '+' : '') + chg.toFixed(1) + '%</span></div>';
+    }).join('');
+  };
+
+  /* Attributes FIRST (the count-up reads them at reveal time, so an update
+     landing before the band scrolls in animates to the live number), then
+     the final string through the boot script's own formatStat — identical
+     output whether the count-up will play, already played (data-counted),
+     or reduced motion snapped it. */
+  const setStat = (id, target, attrs) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.dataset.target = String(target);
+    for (const k in attrs) el.dataset[k] = String(attrs[k]);
+    el.textContent = formatStat(el, target);
+    return el;
+  };
+  /* $3.79T / $184B / $71.7B — T/B scale, three significant digits. */
+  const compact = (usd) => {
+    const [div, suffix] = usd >= 1e12 ? [1e12, 'T'] : [1e9, 'B'];
+    const dec = usd / div >= 100 ? 0 : usd / div >= 10 ? 1 : 2;
+    return { v: +(usd / div).toFixed(dec), dec, suffix };
+  };
+
+  const renderStats = (g) => {
+    const mcap = g?.total_market_cap?.usd, vol = g?.total_volume?.usd,
+          dom = g?.market_cap_percentage?.btc, chgRaw = g?.market_cap_change_percentage_24h_usd;
+    /* All four render or none — a half-live band reads worse than fallbacks. */
+    if (!(mcap > 0) || !(vol > 0) || typeof dom !== 'number' || typeof chgRaw !== 'number') return;
+    const m = compact(mcap), v = compact(vol);
+    setStat('stat-mcap', m.v, { decimals: m.dec, prefix: '$', suffix: m.suffix });
+    setStat('stat-vol', v.v, { decimals: v.dec, prefix: '$', suffix: v.suffix });
+    setStat('stat-btcdom', +dom.toFixed(1), { decimals: 1, suffix: '%' });
+    const chg = +chgRaw.toFixed(1) || 0;
+    /* The "+" rides in data-prefix; negatives bring their own sign. */
+    const el = setStat('stat-mcap-change', chg, { decimals: 1, prefix: chg >= 0 ? '+' : '', suffix: '%' });
+    el.classList.toggle('up', chg >= 0);
+    el.classList.toggle('down', chg < 0);
+  };
+
+  /* Parallel loads (worst case is exactly the two calls this page is
+     allowed). Sections render independently from whichever dataset arrives;
+     a render hiccup warns instead of surfacing — placeholders stay put. */
+  load('cryptofolio.cache.markets', MARKETS_URL, d => d)
+    .then(renderTicker).catch(e => console.warn('live-data: ticker skipped — ' + e.message));
+  load('cryptofolio.cache.global', GLOBAL_URL, d => d.data)
+    .then(renderStats).catch(e => console.warn('live-data: stats skipped — ' + e.message));
+})();
+</script>
+</body>
+</html>
