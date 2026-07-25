@@ -68,7 +68,13 @@ html.view-home #page-app { display: none; }
 html:not(.view-home) #page-home { display: none; }
 
 /* ==================== app view (was index.html) ==================== */
-#page-app #smooth-wrapper { overflow: hidden; }
+/* ScrollSmoother sets this wrapper to position:fixed/inset:0 via inline
+   style at init (that's correct - see the note above #page-app), which
+   means it - not #page-app's own box - is what actually covers the
+   viewport at every scroll depth. Without its own background, anything
+   past the first viewport-height of #page-app's real (short) box shows
+   the page's default white canvas through the fixed window. */
+#page-app #smooth-wrapper { overflow: hidden; background: var(--bg); }
 #page-app #smooth-content { display: flex; flex-direction: column; min-height: 100vh; }
 @media (prefers-reduced-motion: no-preference) {
   #page-app .modal, #page-app .combo-list, #page-app .side-panel, #page-app .sp-body { scroll-behavior: smooth; }
@@ -1042,7 +1048,10 @@ html:not(.view-home) #page-home { display: none; }
 }
 
 /* ==================== landing view (was home.html) ==================== */
-#page-home #home-smooth-wrapper { overflow: hidden; }
+/* Same fix as #page-app's wrapper above: GSAP pins this to position:fixed
+   at init, so it - not #page-home's own (viewport-height-only) box - is
+   what covers the screen at every scroll depth. */
+#page-home #home-smooth-wrapper { overflow: hidden; background: var(--bg); }
 #page-home #home-smooth-content { display: flex; flex-direction: column; min-height: 100vh; }
 #page-home h1, #page-home h2, #page-home h3 { font-family: var(--font-display); line-height: 1.1; letter-spacing: -0.02em; }
 #page-home a { color: inherit; text-decoration: none; }
