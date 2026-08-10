@@ -603,6 +603,32 @@ html:not(.view-home) #page-home { display: none; }
 #page-app .btn.danger:hover { border-color: var(--red); color: var(--red); }
 #page-app .btn.small { padding: 4px 10px; font-size: 12px; }
 #page-app .btn:disabled { opacity: 0.4; cursor: default; border-color: var(--border); }
+
+/* ----- backup & restore ----- */
+#page-app .bk-open { position: relative; white-space: nowrap; flex-shrink: 0; }
+#page-app .bk-dot {
+  position: absolute; top: -3px; right: -3px; width: 8px; height: 8px;
+  border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--bg);
+}
+#page-app .bk-lede { font-size: 13px; line-height: 1.55; color: var(--muted); margin: 0 0 16px; }
+#page-app .bk-lede em { color: var(--text); font-style: normal; font-weight: 600; }
+#page-app .bk-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+#page-app .bk-state { font-size: 12px; color: var(--muted); margin: 12px 0 0; }
+#page-app .bk-msg { font-size: 13px; margin: 10px 0 0; padding: 9px 12px; border-radius: 8px; }
+#page-app .bk-msg.ok { background: rgba(22, 199, 132, 0.12); color: var(--green); }
+#page-app .bk-msg.err { background: rgba(234, 57, 67, 0.12); color: var(--red); }
+#page-app .bk-auto {
+  display: flex; gap: 10px; align-items: flex-start; cursor: pointer;
+  margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);
+}
+#page-app .bk-auto input { margin-top: 3px; flex-shrink: 0; accent-color: var(--accent); }
+#page-app .bk-auto strong { font-size: 13px; display: block; }
+#page-app .bk-sub { font-size: 12px; color: var(--muted); line-height: 1.5; display: block; margin-top: 3px; }
+#page-app .bk-tip {
+  font-size: 12px; color: var(--muted); line-height: 1.55; margin: 14px 0 0;
+  background: var(--bg-3); border-radius: 8px; padding: 10px 12px;
+}
+#page-app .bk-tip strong { color: var(--text); }
 #page-app .pagination {
   display: flex;
   align-items: center;
@@ -1501,6 +1527,10 @@ if (VIEW === 'home') {
       <button class="tab" data-view="gallery">Gallery</button>
     </nav>
     <div id="status" class="status"></div>
+    <!-- Dot badge appears when there's real data but no backup yet (see Backup.refresh). -->
+    <button class="btn small bk-open" id="backup-btn" title="Backup &amp; restore your data">
+      <span data-i18n="Backup">Backup</span><span class="bk-dot hidden" id="bk-dot" aria-hidden="true"></span>
+    </button>
   </div>
 </header>
 
@@ -1828,6 +1858,36 @@ if (VIEW === 'home') {
   <button class="modal-close" data-close aria-label="Close">×</button>
   <h3>Remove Coin</h3>
   <div id="rm-list" class="rm-list"></div>
+</div>
+
+<!-- BACKUP & RESTORE MODAL -->
+<div class="modal" id="backup-modal" role="dialog" aria-modal="true">
+  <button class="modal-close" data-close aria-label="Close">×</button>
+  <h3>Backup &amp; Restore</h3>
+  <p class="bk-lede">Your portfolios, transactions and gallery live in this browser only.
+    Clearing <em>“Cookies and other site data”</em> erases them — no website can opt out of that.
+    A backup file saved on your computer is what survives it.</p>
+
+  <div class="bk-actions">
+    <button class="btn cta" id="bk-export">⤓ Download backup</button>
+    <button class="btn" id="bk-restore">⤒ Restore from file</button>
+    <input type="file" id="bk-file" accept="application/json,.json" hidden>
+  </div>
+
+  <p class="bk-state" id="bk-state"></p>
+  <p class="bk-msg hidden" id="bk-msg"></p>
+
+  <label class="bk-auto">
+    <input type="checkbox" id="bk-auto-toggle">
+    <span>
+      <strong>Auto-backup daily</strong>
+      <span class="bk-sub">Downloads a dated backup at most once a day, and only when something changed.
+        Your browser asks permission the first time a site downloads more than once — allow it and this keeps working.</span>
+    </span>
+  </label>
+
+  <p class="bk-tip">☁️ <strong>Want cloud backup?</strong> Save the file into your Google Drive or iCloud Drive
+    folder — the desktop app syncs it automatically, so it's safe even if this computer dies.</p>
 </div>
 
 <!-- NEW / RENAME PORTFOLIO MODAL -->
@@ -4360,6 +4420,187 @@ const Translate = (() => {
 </script>
 
 <script>
+/* ==================== backup.js ====================
+   Export/import of everything the user actually created, as a JSON file on
+   disk. This exists because localStorage is wiped by the browser's own
+   "Cookies and other site data" control - a page cannot survive or intercept
+   that, by design, so a file outside the browser is the only real backup. */
+const Backup = (() => {
+  const FORMAT = 'cryptofolio.backup';
+  const VERSION = 1;
+
+  /* Exact keys, never a prefix scan. Two traps a prefix would fall into:
+     the language setting (cryptofolio.i18n.lang) shares its prefix with the
+     translation cache (cryptofolio.i18n.<lang>.<text>), and the market caches
+     (cryptofolio.cache.*) would bloat the file by megabytes. Both of those
+     regenerate on their own, so only irreplaceable input is listed here. */
+  const KEYS = [
+    'cryptofolio.portfolios.v1', // portfolios, holdings, full transaction ledger
+    'cryptofolio.holdings.v1',   // pre-migration store; kept so an old backup still restores
+    'cryptofolio.gallery.v1',    // saved sites incl. their compressed screenshots
+    'cryptofolio.i18n.lang',     // chosen language
+  ];
+
+  const AUTO_KEY = 'cryptofolio.backup.auto'; // '0' disables; anything else = on
+  const LAST_KEY = 'cryptofolio.backup.last'; // epoch ms of a REAL saved backup - never set speculatively
+  const SEEN_KEY = 'cryptofolio.backup.seen'; // when content first appeared; only starts the auto-backup clock
+  const SIG_KEY = 'cryptofolio.backup.sig';   // data fingerprint at the last real write
+  const DAY = 24 * 60 * 60 * 1000;
+
+  /* Cheap non-cryptographic fingerprint - only ever compared against itself,
+     to answer "has anything changed since the last backup?" */
+  function sig(s) {
+    let h = 0;
+    for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.charCodeAt(i)) | 0;
+    return h.toString(36);
+  }
+
+  function collect() {
+    const data = {};
+    for (const k of KEYS) {
+      const v = localStorage.getItem(k);
+      if (v !== null) data[k] = v; // absent keys stay absent rather than becoming "null"
+    }
+    return data;
+  }
+
+  /* A brand-new visitor has nothing worth writing to disk; used to keep the
+     auto-backup and the nudge dot quiet until there's real content. */
+  function hasContent(data) {
+    for (const k of ['cryptofolio.portfolios.v1', 'cryptofolio.holdings.v1', 'cryptofolio.gallery.v1']) {
+      const raw = data[k];
+      if (!raw) continue;
+      try {
+        const p = JSON.parse(raw);
+        if (Array.isArray(p) && p.length) return true;
+        if (p && Array.isArray(p.portfolios) && p.portfolios.some(x => (x.holdings || []).length)) return true;
+      } catch { /* unparseable - treat as empty rather than guessing */ }
+    }
+    return false;
+  }
+
+  function save(auto) {
+    const data = collect();
+    const payload = JSON.stringify({
+      format: FORMAT, version: VERSION, savedAt: new Date().toISOString(),
+      app: 'CryptoFolio', data,
+    }, null, 2);
+
+    const url = URL.createObjectURL(new Blob([payload], { type: 'application/json' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'cryptofolio-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    // Revoke on the next task: revoking synchronously can cancel the download
+    // in some browsers before it has read the blob.
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+
+    localStorage.setItem(LAST_KEY, String(Date.now()));
+    localStorage.setItem(SIG_KEY, sig(JSON.stringify(data)));
+    refresh();
+    if (!auto) msg('Backup downloaded. Keep it somewhere safe — a Drive or iCloud folder syncs it off this machine.', 'ok');
+  }
+
+  /* Restore replaces the current store outright, so it confirms first and
+     reloads after: every module read its slice of localStorage at startup and
+     caches it in memory, so patching storage alone would leave a stale UI. */
+  async function restore(file) {
+    try {
+      const parsed = JSON.parse(await file.text());
+      if (!parsed || parsed.format !== FORMAT || !parsed.data || typeof parsed.data !== 'object') {
+        return msg("That file isn't a CryptoFolio backup.", 'err');
+      }
+      const keys = Object.keys(parsed.data).filter(k => KEYS.includes(k));
+      if (!keys.length) return msg('That backup is empty — nothing to restore.', 'err');
+
+      const when = parsed.savedAt ? new Date(parsed.savedAt).toLocaleString() : 'an unknown date';
+      if (!confirm('Restore the backup from ' + when + '?\n\nThis replaces the portfolios, transactions and gallery currently in this browser.')) return;
+
+      for (const k of keys) localStorage.setItem(k, parsed.data[k]);
+      location.reload();
+    } catch {
+      msg("Couldn't read that file — it may be damaged or not a backup.", 'err');
+    }
+  }
+
+  function msg(text, kind) {
+    const el = document.getElementById('bk-msg');
+    if (!el) return;
+    el.textContent = text;
+    el.className = 'bk-msg ' + kind;
+  }
+
+  function refresh() {
+    const last = +localStorage.getItem(LAST_KEY) || 0;
+    const state = document.getElementById('bk-state');
+    if (state) {
+      state.textContent = last
+        ? 'Last backup: ' + new Date(last).toLocaleString()
+        : 'No backup yet.';
+    }
+    // Nudge only when there is something to lose and nothing saved yet.
+    const dot = document.getElementById('bk-dot');
+    if (dot) dot.classList.toggle('hidden', !!last || !hasContent(collect()));
+  }
+
+  /* Runs once per load. The first sighting of real content only starts the
+     clock - firing an unannounced download the moment someone opens the page
+     is hostile, and the modal is right there for an immediate manual one.
+     That start marker is deliberately NOT the "last backup" timestamp: saying
+     a backup exists when no file was ever written would be a lie the user
+     might rely on. */
+  function maybeAuto() {
+    if (localStorage.getItem(AUTO_KEY) === '0') return;
+    const data = collect();
+    if (!hasContent(data)) return;
+
+    const seen = +localStorage.getItem(SEEN_KEY) || 0;
+    if (!seen) { localStorage.setItem(SEEN_KEY, String(Date.now())); return refresh(); }
+
+    const last = +localStorage.getItem(LAST_KEY) || 0;
+    if (Date.now() - (last || seen) < DAY) return;
+    if (sig(JSON.stringify(data)) === localStorage.getItem(SIG_KEY)) return; // unchanged since last time
+    save(true);
+  }
+
+  function init() {
+    const open = document.getElementById('backup-btn');
+    const auto = document.getElementById('bk-auto-toggle');
+    const file = document.getElementById('bk-file');
+    if (!open || !auto || !file) return;
+
+    open.addEventListener('click', () => {
+      msg('', '');
+      document.getElementById('bk-msg').className = 'bk-msg hidden';
+      refresh();
+      document.getElementById('backup-modal').classList.add('open');
+      document.getElementById('modal-backdrop').classList.add('open');
+    });
+    document.getElementById('bk-export').addEventListener('click', () => save(false));
+    document.getElementById('bk-restore').addEventListener('click', () => file.click());
+    file.addEventListener('change', () => {
+      if (file.files[0]) restore(file.files[0]);
+      file.value = ''; // let the same file be picked again after a failed try
+    });
+
+    auto.checked = localStorage.getItem(AUTO_KEY) !== '0';
+    auto.addEventListener('change', () => {
+      localStorage.setItem(AUTO_KEY, auto.checked ? '1' : '0');
+      msg(auto.checked ? 'Auto-backup on — a dated file downloads once a day when something changed.'
+                       : 'Auto-backup off. Remember to download one yourself.', 'ok');
+    });
+
+    refresh();
+    maybeAuto();
+  }
+
+  return { init };
+})();
+</script>
+
+<script>
 /* ==================== app.js ====================
    App shell: shared state + formatters, view switching, refresh loop, coin side panel. */
 const state = { markets: [], global: null, updatedAt: 0, stale: false };
@@ -4745,6 +4986,7 @@ document.addEventListener('DOMContentLoaded', () => {
   CoinPanel.init();
   Gallery.init();
   Translate.init();
+  Backup.init();
 
   document.querySelectorAll('.tab').forEach(t =>
     t.addEventListener('click', () => switchView(t.dataset.view)));
