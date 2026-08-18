@@ -115,8 +115,39 @@ html:not(.view-home) #page-home { display: none; }
   font-weight: 600;
   cursor: pointer;
 }
-#page-app .tab:hover { color: var(--text); background: var(--bg-3); }
-#page-app .tab.active { color: var(--text); background: var(--bg-3); box-shadow: inset 0 -2px 0 var(--accent); }
+#page-app .tab { transition: color 0.22s ease; }
+#page-app .tab:hover { color: #ffcc33; }
+/* Active tab: no box or underline - the TEXT itself becomes a live gradient
+   that flows (accent blue -> green -> accent) with a soft glow, plus a quick
+   pop as it activates. */
+#page-app .tab.active {
+  font-weight: 700;
+  color: transparent;
+  background-image: linear-gradient(100deg, var(--accent), #8ab4ff, var(--green), #8ab4ff, var(--accent));
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 8px rgba(79, 140, 255, 0.35));
+  animation: tab-pop 0.32s ease-out, tab-flow 3.5s linear infinite;
+}
+@keyframes tab-flow {
+  0%   { background-position: 0% center; }
+  100% { background-position: -200% center; }
+}
+@keyframes tab-pop {
+  from { opacity: 0.4; transform: translateY(2px) scale(0.96); }
+  to   { opacity: 1;   transform: translateY(0)   scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #page-app .tab.active {
+    animation: none;
+    background-image: none;
+    -webkit-text-fill-color: var(--accent);
+    color: var(--accent);
+    filter: none;
+  }
+}
 #page-app .status { margin-left: auto; font-size: 12px; color: var(--muted); white-space: nowrap; }
 #page-app .status.stale { color: #f3a712; }
 #page-app .warn-toast {
@@ -239,7 +270,13 @@ html:not(.view-home) #page-home { display: none; }
 #page-app th.sorted-asc::after { content: " ▲"; color: var(--accent); }
 #page-app th.sorted-desc::after { content: " ▼"; color: var(--accent); }
 #page-app #market-table tbody tr { cursor: pointer; }
-#page-app #market-table tbody tr:hover { background: var(--bg-3); }
+#page-app .table-wrap--flush tbody tr:hover { background: var(--bg-3); }
+/* Flush variant: drop the card fill/outline so rows sit on the page divided
+   only by the row separator lines (CoinGecko style). The sticky header still
+   needs an opaque page-coloured background so scrolling rows don't bleed
+   through it. */
+#page-app .table-wrap--flush { background: transparent; border: none; border-radius: 0; }
+#page-app .table-wrap--flush .data-table th { background: var(--bg); }
 #page-app .loading-cell { text-align: center; color: var(--muted); padding: 32px !important; }
 #page-app .coin-cell { display: flex; align-items: center; gap: 8px; }
 #page-app .coin-cell img { width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0; }
@@ -486,19 +523,22 @@ html:not(.view-home) #page-home { display: none; }
   position: fixed;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%) scale(0.96);
+  /* Closed state sits 14px low + slightly small, so opening rises it into the
+     dead-centre open state below - a subtle "settle into place" feel. */
+  transform: translate(-50%, calc(-50% + 14px)) scale(0.97);
   width: min(480px, 92vw);
   max-height: 88vh;
   overflow-y: auto;
   background: var(--bg-2);
   border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 22px;
+  border-radius: 18px;
+  padding: 24px;
   z-index: 110;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.18s ease, transform 0.18s ease;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+  transition: opacity 0.2s ease, transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  /* Layered shadow: a deep ambient drop + a tight contact shadow for depth. */
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55), 0 2px 10px rgba(0, 0, 0, 0.35);
 }
 #page-app .modal.open { opacity: 1; pointer-events: all; transform: translate(-50%, -50%) scale(1); }
 #page-app #modal-backdrop { z-index: 105; }
@@ -573,9 +613,16 @@ html:not(.view-home) #page-home { display: none; }
   border-radius: 10px;
   cursor: pointer;
   flex-shrink: 0;
+  transition: border-color 0.15s ease, transform 0.08s ease;
 }
 #page-app .np-icon-btn:hover { border-color: var(--lime); }
+#page-app .np-icon-btn:active { transform: scale(0.92); }
 #page-app .np-name-row input { flex: 1; }
+#page-app .nt-field { display: flex; flex-direction: column; gap: 7px; }
+/* The naming modal is a tiny form - a tighter width reads better than the
+   480px shared default it would otherwise inherit. */
+#page-app #nt-modal { width: min(384px, 92vw); }
+#page-app #nt-modal .btn.cta { margin-top: 2px; }
 #page-app .btn.cta {
   background: var(--lime);
   border-color: var(--lime);
@@ -853,8 +900,9 @@ html:not(.view-home) #page-home { display: none; }
 #page-app .panel-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(2px);
+  background: rgba(6, 8, 12, 0.66);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px); /* Safari (incl. the Mac we're sharing to) */
   z-index: 90;
   opacity: 0;
   pointer-events: none;
@@ -1523,6 +1571,7 @@ if (VIEW === 'home') {
     <nav class="tabs">
       <button class="tab active" data-view="market">Market</button>
       <button class="tab" data-view="portfolio">My Portfolio</button>
+      <button class="tab" data-view="transactions">CVS Transactions</button>
       <button class="tab" data-view="bubbles">Bubbles</button>
       <button class="tab" data-view="gallery">Gallery</button>
     </nav>
@@ -1546,7 +1595,7 @@ if (VIEW === 'home') {
     <div class="controls">
       <input id="market-search" type="search" placeholder="Search coin or symbol…" autocomplete="off">
     </div>
-    <div class="table-wrap">
+    <div class="table-wrap table-wrap--flush">
       <table class="data-table" id="market-table">
         <thead>
           <tr>
@@ -1643,7 +1692,7 @@ if (VIEW === 'home') {
     <!-- COINS PANEL -->
     <div class="pf-panel active" id="pf-panel-coins">
       <p id="pf-empty" class="empty"><span data-i18n="No holdings yet — click “＋ Add coin” to add your first coin.">No holdings yet — click “＋ Add coin” to add your first coin.</span><br><small data-i18n="Your portfolios are stored locally in this browser only.">Your portfolios are stored locally in this browser only.</small></p>
-      <div class="table-wrap">
+      <div class="table-wrap table-wrap--flush">
         <table class="data-table hidden" id="pf-table">
           <thead>
             <tr>
@@ -1705,6 +1754,63 @@ if (VIEW === 'home') {
     <div class="pf-panel" id="pf-panel-tx">
       <nav class="pf-tx-breadcrumb" id="pf-tx-breadcrumb"></nav>
       <div id="pf-tx-content"></div>
+    </div>
+  </section>
+
+  <!-- CVS TRANSACTIONS VIEW -->
+  <!-- Reuses the portfolio view's classes/styling, trimmed per spec: no
+       Analytics sub-tab, no 24h-change or Top-Performer cards, CVS-file
+       actions instead of add/remove coin. Static shell for now - no JS module
+       bound yet, behaviour of the buttons is still to be specified. Own id
+       namespace (cvs-*) so nothing collides with the portfolio view. -->
+  <section id="view-transactions" class="view">
+    <!-- transaction-set selector tabs -->
+    <div class="pf-tabs-row">
+      <div class="pf-tabs" id="cvs-tabs"><!-- rendered by TxSets.renderTabs --></div>
+      <button class="pf-tab pf-new" id="cvs-new-btn">+ <span data-i18n="New Transaction">New Transaction</span></button>
+    </div>
+
+    <!-- title + actions -->
+    <div class="pf-head">
+      <div class="pf-title">
+        <span class="pf-title-icon" id="cvs-title-icon">⭐</span>
+        <h2 id="cvs-title-name" data-i18n="My Transactions">My Transactions</h2>
+      </div>
+      <div class="pf-head-right">
+        <div class="pf-actions" id="cvs-actions">
+          <button class="btn" id="cvs-add-btn">＋ <span data-i18n="Add CVS file">Add CVS file</span></button>
+          <button class="btn" id="cvs-remove-btn">− <span data-i18n="Remove CVS file">Remove CVS file</span></button>
+          <div class="menu-wrap">
+            <button class="btn icon" id="cvs-menu-btn" aria-label="Transactions menu">⋮</button>
+            <div class="menu hidden" id="cvs-menu">
+              <button data-act="rename">✏️ <span data-i18n="Rename">Rename</span></button>
+              <button data-act="delete" class="danger">🗑 <span data-i18n="Delete">Delete</span></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- summary cards: only Current Balance + Total Profit/Loss per spec -->
+    <div class="pf-summary">
+      <div class="card">
+        <span class="card-value" id="cvs-total">$0.00</span>
+        <span class="card-label" data-i18n="Current Balance">Current Balance</span>
+      </div>
+      <div class="card">
+        <span class="card-value" id="cvs-pl">—</span>
+        <span class="card-label"><span data-i18n="Total Profit / Loss">Total Profit / Loss</span> <span id="cvs-pl-pct"></span></span>
+      </div>
+    </div>
+
+    <!-- sub tabs: single "Transactions" tab (Analytics removed) -->
+    <div class="pf-subtabs">
+      <button class="pf-subtab active" data-sub="transactions"><span data-i18n="Transactions">Transactions</span></button>
+    </div>
+
+    <!-- TRANSACTIONS PANEL -->
+    <div class="pf-panel active" id="cvs-panel">
+      <p id="cvs-empty" class="empty"><span data-i18n="No transactions yet — click “＋ Add CVS file” to import your crypto or stocks.">No transactions yet — click “＋ Add CVS file” to import your crypto or stocks.</span><br><small data-i18n="Your transactions are stored locally in this browser only.">Your transactions are stored locally in this browser only.</small></p>
     </div>
   </section>
 
@@ -1921,6 +2027,24 @@ if (VIEW === 'home') {
       <input id="np-name" type="text" placeholder="My Portfolio" maxlength="24">
     </div>
     <button class="btn cta" id="np-create">Create</button>
+  </div>
+</div>
+
+<!-- NEW / RENAME TRANSACTION-SET MODAL (mirrors the portfolio naming step) -->
+<div class="modal" id="nt-modal" role="dialog" aria-modal="true">
+  <button class="modal-close" data-close aria-label="Close">×</button>
+  <!-- .np-step gives the even 14px vertical rhythm; .nt-field pulls the label
+       tight to its input so they read as one control. -->
+  <div class="np-step">
+    <h3 id="nt-title">New Transaction</h3>
+    <div class="nt-field">
+      <label class="np-label" for="nt-name">Icon &amp; name</label>
+      <div class="np-name-row">
+        <button type="button" class="np-icon-btn" id="nt-icon" title="Change icon">⭐</button>
+        <input id="nt-name" type="text" placeholder="My Transactions" maxlength="24">
+      </div>
+    </div>
+    <button class="btn cta" id="nt-create">Create</button>
   </div>
 </div>
 
@@ -3125,7 +3249,7 @@ const Portfolio = (() => {
     const body = pageRows.map(r => txRowHTML(r, sym)).join('');
     const table = '<div class="tx-table-head-row"><h3>Transactions</h3>'
       + '<button class="btn cta" id="pf-tx-add">+ Add transaction</button></div>'
-      + '<div class="table-wrap"><table class="data-table" id="pf-tx-table"><thead><tr>'
+      + '<div class="table-wrap table-wrap--flush"><table class="data-table" id="pf-tx-table"><thead><tr>'
       + '<th>Type</th><th class="num">Price</th><th class="num">Quantity</th><th>Date &amp; Time</th>'
       + '<th class="num">Fees</th><th class="num">Cost</th><th class="num">Proceeds</th><th class="num">PNL</th>'
       + '<th>Notes</th><th class="num">Actions</th></tr></thead><tbody>'
@@ -4601,11 +4725,138 @@ const Backup = (() => {
 </script>
 
 <script>
+/* ==================== transactions.js ====================
+   Tab management for the CVS Transactions view. Mirrors the portfolio tab
+   system - a persisted list of named sets, one active, with New / Rename /
+   Delete - but in its own store and id namespace (cvs-* / txsets). What a
+   set actually HOLDS (the CVS import, the table, the summary numbers) is
+   still to be built; this only makes "New Transaction" behave like
+   "New Portfolio": create a tab, select it, rename/delete it. */
+const TxSets = (() => {
+  const KEY = 'cryptofolio.txsets.v1';
+  const ICONS = ['⭐', '🚀', '💎', '🐸', '🦄', '🔥', '🌙', '🐳'];
+  const DEFAULT_ID = 'default'; // always-present set; can't be deleted, mirrors the portfolio default
+
+  let store = load();   // { activeId, sets: [{ id, name, icon }] }
+  let mode = 'create';  // 'create' | 'rename'
+  let icon = ICONS[0];
+
+  function load() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(KEY));
+      if (raw && Array.isArray(raw.sets) && raw.sets.length) return raw;
+    } catch { /* fall through to a fresh default */ }
+    return { activeId: DEFAULT_ID, sets: [{ id: DEFAULT_ID, name: 'My Transactions', icon: '⭐' }] };
+  }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch {} }
+
+  function active() { return store.sets.find(s => s.id === store.activeId) || store.sets[0]; }
+
+  function renderTabs() {
+    document.getElementById('cvs-tabs').innerHTML = store.sets.map(s =>
+      '<button class="pf-tab' + (s.id === store.activeId ? ' active' : '') + '" data-tid="' + esc(s.id) + '">'
+      + '<span class="pf-tab-icon">' + esc(s.icon || '⭐') + '</span>' + esc(s.name) + '</button>'
+    ).join('');
+  }
+
+  function renderHead() {
+    const s = active();
+    document.getElementById('cvs-title-icon').textContent = s.icon || '⭐';
+    document.getElementById('cvs-title-name').textContent = s.name;
+    // Can't delete the last/default set, same rule as the portfolio's default.
+    const del = document.querySelector('#cvs-menu button[data-act="delete"]');
+    if (del) del.classList.toggle('hidden', s.id === DEFAULT_ID);
+  }
+
+  function render() { renderTabs(); renderHead(); }
+
+  /* Own open/close: the shared closeModals lives inside the Portfolio closure,
+     but the shared modal-close button / backdrop / Escape wiring already
+     targets every .modal, so those paths close this one too. We only need to
+     open it, and to close it after a successful submit. */
+  function showModal(m) {
+    mode = m;
+    icon = m === 'rename' ? (active().icon || ICONS[0]) : ICONS[0];
+    document.getElementById('nt-title').textContent = m === 'rename' ? 'Rename Transaction' : 'New Transaction';
+    document.getElementById('nt-create').textContent = m === 'rename' ? 'Save' : 'Create';
+    document.getElementById('nt-icon').textContent = icon;
+    document.getElementById('nt-name').value = m === 'rename' ? active().name : '';
+    document.getElementById('nt-modal').classList.add('open');
+    document.getElementById('modal-backdrop').classList.add('open');
+    document.getElementById('nt-name').focus();
+  }
+  function hideModal() {
+    document.getElementById('nt-modal').classList.remove('open');
+    document.getElementById('modal-backdrop').classList.remove('open');
+  }
+
+  function submit() {
+    const name = document.getElementById('nt-name').value.trim() || 'My Transactions';
+    if (mode === 'rename') {
+      const s = active(); s.name = name; s.icon = icon;
+    } else {
+      store.sets.push({ id: 't_' + Date.now().toString(36), name, icon });
+      store.activeId = store.sets[store.sets.length - 1].id;
+    }
+    save(); hideModal(); render();
+  }
+
+  function del() {
+    const s = active();
+    if (s.id === DEFAULT_ID) return;
+    if (!confirm('Delete "' + s.name + '"?')) return;
+    store.sets = store.sets.filter(x => x.id !== s.id);
+    store.activeId = DEFAULT_ID;
+    save(); render();
+  }
+
+  function init() {
+    const tabs = document.getElementById('cvs-tabs');
+    if (!tabs) return;
+    tabs.addEventListener('click', e => {
+      const b = e.target.closest('.pf-tab[data-tid]');
+      if (!b) return;
+      store.activeId = b.dataset.tid; save(); render();
+    });
+    document.getElementById('cvs-new-btn').addEventListener('click', () => showModal('create'));
+
+    document.getElementById('cvs-menu-btn').addEventListener('click', e => {
+      e.stopPropagation();
+      document.getElementById('cvs-menu').classList.toggle('hidden');
+    });
+    document.getElementById('cvs-menu').addEventListener('click', e => {
+      const b = e.target.closest('button[data-act]');
+      if (!b) return;
+      document.getElementById('cvs-menu').classList.add('hidden');
+      if (b.dataset.act === 'rename') showModal('rename');
+      else if (b.dataset.act === 'delete') del();
+    });
+    document.addEventListener('click', e => {
+      if (!e.target.closest('#cvs-menu-btn')) document.getElementById('cvs-menu').classList.add('hidden');
+    });
+
+    document.getElementById('nt-icon').addEventListener('click', () => {
+      icon = ICONS[(ICONS.indexOf(icon) + 1) % ICONS.length];
+      document.getElementById('nt-icon').textContent = icon;
+    });
+    document.getElementById('nt-create').addEventListener('click', submit);
+    document.getElementById('nt-name').addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); submit(); }
+    });
+
+    render();
+  }
+
+  return { init };
+})();
+</script>
+
+<script>
 /* ==================== app.js ====================
    App shell: shared state + formatters, view switching, refresh loop, coin side panel. */
 const state = { markets: [], global: null, updatedAt: 0, stale: false };
 
-const VIEWS = ['market', 'portfolio', 'bubbles', 'gallery'];
+const VIEWS = ['market', 'portfolio', 'transactions', 'bubbles', 'gallery'];
 const REFRESH_MS = 60 * 1000;
 
 /* Coins beyond CoinGecko's top 250 (the CoinCodex long tail — see
@@ -4987,6 +5238,7 @@ document.addEventListener('DOMContentLoaded', () => {
   Gallery.init();
   Translate.init();
   Backup.init();
+  TxSets.init();
 
   document.querySelectorAll('.tab').forEach(t =>
     t.addEventListener('click', () => switchView(t.dataset.view)));
