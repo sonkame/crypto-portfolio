@@ -213,7 +213,8 @@ html:not(.view-home) #page-home { display: none; }
   margin-bottom: 12px;
 }
 #page-app .stat {
-  background: var(--bg-2);
+  /* Same flush treatment as .card: no fill, thin outline only. */
+  background: transparent;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 10px 16px;
@@ -353,8 +354,30 @@ html:not(.view-home) #page-home { display: none; }
 #page-app .chip { padding: 1px 6px; font-size: 10px; }
 #page-app .pf-head-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 #page-app .pf-actions { display: flex; align-items: center; gap: 8px; }
-#page-app .pf-lang { background: var(--bg-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font: inherit; cursor: pointer; }
+#page-app .pf-lang {
+  background: transparent; color: var(--text); border: 1px solid var(--border);
+  border-radius: 8px; padding: 6px 10px; font: inherit; cursor: pointer;
+  text-align: center; text-align-last: center; /* the visible selected value, not the popup list */
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+#page-app .pf-lang:hover { border-color: var(--accent); }
+#page-app .pf-lang:focus-visible {
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(79, 140, 255, 0.2);
+}
+/* The dropdown's OPEN popup list is a native OS control, not something a
+   <select>'s own CSS reaches - Chrome/Firefox default it to a plain white
+   panel with barely-visible grey text, ignoring the dark theme entirely.
+   background-color/color on <option> are the properties browsers actually
+   honour for that popup, so set them explicitly rather than relying on
+   inheritance from the closed <select>. (Safari renders its own system
+   picker regardless of any of this - a platform limit, not a bug here.) */
+#page-app .pf-lang option {
+  background-color: var(--bg-2);
+  color: var(--text);
+}
 #page-app .btn.icon { padding: 9px 13px; }
+#page-app .btn.icon:hover { color: var(--accent); }
 #page-app .menu-wrap { position: relative; }
 #page-app .menu {
   position: absolute;
@@ -391,7 +414,9 @@ html:not(.view-home) #page-home { display: none; }
   margin-bottom: 16px;
 }
 #page-app .card {
-  background: var(--bg-2);
+  /* Flush like the tables: no fill, just a thin outline so the stat still
+     reads as its own box instead of disappearing into the page. */
+  background: transparent;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 14px 16px;
@@ -411,6 +436,41 @@ html:not(.view-home) #page-home { display: none; }
 #page-app .card-value { font-size: 22px; font-weight: 700; min-height: 26px; }
 #page-app .card-top-performer { display: flex; align-items: center; gap: 8px; font-size: 18px; }
 #page-app .card-top-performer img { border-radius: 50%; flex-shrink: 0; }
+
+/* Extra context line under a card's label (cost basis, holdings, movers). */
+#page-app .card-sub {
+  font-size: 12px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+#page-app .card-sub strong { color: var(--text); font-weight: 600; }
+
+/* Balance composition bar: one segment per holding, widths = % of value. */
+#page-app .alloc-bar {
+  display: flex;
+  height: 3px;
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 8px;
+  background: var(--bg-3);
+}
+#page-app .alloc-seg { height: 100%; transition: width 0.4s ease; }
+#page-app .alloc-seg + .alloc-seg { margin-left: 1px; } /* hairline split so adjacent colours stay readable */
+#page-app .alloc-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-top: 7px;
+}
+#page-app .alloc-legend span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+#page-app .alloc-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+#page-app .alloc-pct { color: var(--text); font-weight: 600; }
 #page-app .pf-subtabs {
   display: flex;
   gap: 2px;
@@ -633,23 +693,44 @@ html:not(.view-home) #page-home { display: none; }
   border-radius: 10px;
   width: 100%;
 }
-#page-app .btn.cta:hover { filter: brightness(1.08); }
+#page-app .btn.cta:hover { filter: brightness(1.08); box-shadow: 0 6px 18px rgba(163, 230, 53, 0.28); }
 #page-app .btn {
-  background: var(--bg-3);
+  /* Flush like the cards/stats/tables: no fill at rest, thin outline only.
+     Hover adds just enough of a tint back for click affordance (see below). */
+  background: transparent;
   border: 1px solid var(--border);
   color: var(--text);
   border-radius: 8px;
   padding: 9px 18px;
   font-size: 14px;
   font-weight: 600;
+  text-align: center;
   cursor: pointer;
+  /* Lift + glow on hover, a quick press on click - same tactile language as
+     the modal icon buttons and the nav tabs elsewhere in the app. */
+  transition: border-color 0.15s ease, background-color 0.15s ease,
+    transform 0.12s ease, box-shadow 0.15s ease, color 0.15s ease;
 }
-#page-app .btn:hover { border-color: var(--accent); }
+#page-app .btn:hover {
+  border-color: var(--accent);
+  background: var(--bg-2);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(79, 140, 255, 0.16);
+}
+#page-app .btn:active { transform: translateY(0) scale(0.97); box-shadow: none; }
+#page-app .btn.cta:active { transform: scale(0.98); }
 #page-app .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-#page-app .btn.primary:hover { filter: brightness(1.1); }
-#page-app .btn.danger:hover { border-color: var(--red); color: var(--red); }
+#page-app .btn.primary:hover { filter: brightness(1.1); box-shadow: 0 4px 14px rgba(79, 140, 255, 0.35); }
+#page-app .btn.danger:hover { border-color: var(--red); color: var(--red); box-shadow: 0 4px 14px rgba(234, 57, 67, 0.18); }
 #page-app .btn.small { padding: 4px 10px; font-size: 12px; }
-#page-app .btn:disabled { opacity: 0.4; cursor: default; border-color: var(--border); }
+#page-app .btn:disabled {
+  opacity: 0.4; cursor: default; border-color: var(--border);
+  transform: none; box-shadow: none; background: var(--bg-3);
+}
+@media (prefers-reduced-motion: reduce) {
+  #page-app .btn { transition: border-color 0.15s ease, color 0.15s ease; }
+  #page-app .btn:hover, #page-app .btn:active { transform: none; box-shadow: none; }
+}
 
 /* ----- backup & restore ----- */
 #page-app .bk-open { position: relative; white-space: nowrap; flex-shrink: 0; }
@@ -1668,18 +1749,24 @@ if (VIEW === 'home') {
       <div class="card">
         <span class="card-value" id="pf-total">$0.00</span>
         <span class="card-label" data-i18n="Current Balance">Current Balance</span>
+        <!-- Allocation bar + legend: what the balance is actually made of. -->
+        <div class="alloc-bar hidden" id="pf-alloc-bar"></div>
+        <div class="alloc-legend hidden" id="pf-alloc-legend"></div>
       </div>
       <div class="card">
         <span class="card-value" id="pf-24h">—</span>
         <span class="card-label"><span data-i18n="24h Portfolio Change">24h Portfolio Change</span> <span id="pf-24h-pct"></span></span>
+        <span class="card-sub hidden" id="pf-24h-sub"></span>
       </div>
       <div class="card">
         <span class="card-value" id="pf-pl">—</span>
         <span class="card-label"><span data-i18n="Total Profit / Loss">Total Profit / Loss</span> <span id="pf-pl-pct"></span></span>
+        <span class="card-sub hidden" id="pf-pl-sub"></span>
       </div>
       <div class="card">
         <span class="card-value card-top-performer" id="pf-top-coin">—</span>
         <span class="card-label"><span data-i18n="Top Performer">Top Performer</span> <span class="chip">24H</span> <span id="pf-top-chg"></span></span>
+        <span class="card-sub hidden" id="pf-top-sub"></span>
       </div>
     </div>
 
@@ -3105,9 +3192,18 @@ const Portfolio = (() => {
     if (delBtn) delBtn.classList.toggle('hidden', !p || p.id === 'default');
   }
 
+  /* Muted, desaturated colours for the balance composition bar - the bar is
+     supporting context, so it shouldn't shout louder than the balance above
+     it. Hues stay well spaced (amber/blue/green/rose/teal/lavender) so the
+     segments are still easy to tell apart on the dark background. Local to
+     Portfolio - Analytics keeps its own brighter palette for the donut. */
+  const ALLOC_COLORS = ['#c49a4a', '#6b8caf', '#5f9b78', '#b07d8c', '#5d94a0', '#8b7fa8'];
+
   function renderSummary(holdings) {
-    let totalValue = 0, totalCost = 0, totalChg24 = 0;
+    let totalValue = 0, totalCost = 0, totalChg24 = 0, realized = 0;
     let top = null;
+    let gainers = 0, losers = 0;
+    const parts = []; // per-coin value, for the allocation bar
     for (const h of holdings) {
       const c = coinById(h.coinId);
       if (!c || c.current_price == null) continue;
@@ -3116,8 +3212,13 @@ const Portfolio = (() => {
       totalValue += value;
       totalCost += h.amount * h.buyPrice;
       totalChg24 += chg;
-      if (!top || chg > top.chg) top = { coin: c, chg };
+      realized += h.realizedPnl || 0;
+      const pct24 = c.price_change_percentage_24h_in_currency;
+      if (pct24 > 0) gainers++; else if (pct24 < 0) losers++;
+      if (value > 0) parts.push({ sym: (c.symbol || '').toUpperCase(), value });
+      if (!top || chg > top.chg) top = { coin: c, chg, amount: h.amount, value };
     }
+    renderAllocation(parts, totalValue);
 
     document.getElementById('pf-total').textContent = fmtCompactPrecise(totalValue);
 
@@ -3128,6 +3229,10 @@ const Portfolio = (() => {
     chgEl.className = 'card-value ' + signedCls(totalChg24);
     const chgPctEl = document.getElementById('pf-24h-pct');
     chgPctEl.innerHTML = holdings.length && chgPct != null ? pctSpan(chgPct) : '';
+    // How the 24h move splits across the portfolio.
+    setSub('pf-24h-sub', (gainers || losers)
+      ? '<span class="up">▲ ' + gainers + ' up</span> <span class="down">▼ ' + losers + ' down</span>'
+      : '');
 
     const plEl = document.getElementById('pf-pl');
     const pl = totalValue - totalCost;
@@ -3135,6 +3240,12 @@ const Portfolio = (() => {
     plEl.textContent = holdings.length ? signedUSD(pl) : '—';
     plEl.className = 'card-value ' + signedCls(pl);
     document.getElementById('pf-pl-pct').innerHTML = holdings.length && plPct != null ? pctSpan(plPct) : '';
+    // What that P/L is measured against, plus realised gains once any sell exists.
+    setSub('pf-pl-sub', totalCost > 0
+      ? 'on <strong>' + fmtCompactPrecise(totalCost) + '</strong> invested'
+        + (Math.abs(realized) > 0.005
+          ? ' · <span class="' + signedCls(realized) + '">' + signedUSD(realized) + '</span> realized' : '')
+      : '');
 
     const topEl = document.getElementById('pf-top-coin');
     const topChgEl = document.getElementById('pf-top-chg');
@@ -3142,10 +3253,53 @@ const Portfolio = (() => {
       topEl.innerHTML = '<img src="' + esc(top.coin.image || BLANK_IMG) + '" alt="" width="22" height="22"> '
         + esc(top.coin.name) + ' <span class="coin-sym">' + esc(top.coin.symbol.toUpperCase()) + '</span>';
       topChgEl.innerHTML = '<span class="' + signedCls(top.chg) + '">' + signedUSD(top.chg) + '</span>';
+      // What you actually hold of it, and what that is worth right now.
+      setSub('pf-top-sub', '<strong>' + fmtAmount(top.amount) + ' ' + esc(top.coin.symbol.toUpperCase())
+        + '</strong> · ' + fmtCompactPrecise(top.value)
+        + ' · @ ' + fmtUSD(top.coin.current_price));
     } else {
       topEl.textContent = '—';
       topChgEl.textContent = '';
+      setSub('pf-top-sub', '');
     }
+  }
+
+  /* Writes a card's context line, hiding it when there is nothing to say. */
+  function setSub(id, html) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = html;
+    el.classList.toggle('hidden', !html);
+  }
+
+  function fmtAmount(n) {
+    if (n == null || isNaN(n)) return '—';
+    return n.toLocaleString('en-US', { maximumFractionDigits: n >= 1 ? 4 : 8 });
+  }
+
+  /* Balance composition: one bar segment + legend entry per holding. Anything
+     past the top 5 is merged into "Others" so the bar stays readable. */
+  function renderAllocation(parts, totalValue) {
+    const bar = document.getElementById('pf-alloc-bar');
+    const legend = document.getElementById('pf-alloc-legend');
+    if (!bar || !legend) return;
+    if (!parts.length || totalValue <= 0) {
+      bar.classList.add('hidden'); legend.classList.add('hidden');
+      bar.innerHTML = ''; legend.innerHTML = '';
+      return;
+    }
+    parts.sort((a, b) => b.value - a.value);
+    const shown = parts.slice(0, 5);
+    const rest = parts.slice(5).reduce((s, p) => s + p.value, 0);
+    if (rest > 0) shown.push({ sym: 'Others', value: rest });
+
+    bar.innerHTML = shown.map((p, i) =>
+      '<span class="alloc-seg" style="width:' + ((p.value / totalValue) * 100).toFixed(2) + '%;background:'
+      + ALLOC_COLORS[i % ALLOC_COLORS.length] + '" title="' + esc(p.sym) + '"></span>').join('');
+    legend.innerHTML = shown.map((p, i) =>
+      '<span><span class="alloc-dot" style="background:' + ALLOC_COLORS[i % ALLOC_COLORS.length] + '"></span>'
+      + esc(p.sym) + ' <span class="alloc-pct">' + ((p.value / totalValue) * 100).toFixed(1) + '%</span></span>').join('');
+    bar.classList.remove('hidden'); legend.classList.remove('hidden');
   }
 
   function render() {
