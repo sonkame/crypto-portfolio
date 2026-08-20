@@ -1,0 +1,14 @@
+(() => {
+  const KEYS = ['cryptofolio.portfolios.v1','cryptofolio.holdings.v1','cryptofolio.gallery.v1','cryptofolio.txsets.v1','cryptofolio.i18n.lang'];
+  const data = {};
+  for (const k of KEYS) { const v = localStorage.getItem(k); if (v !== null) data[k] = v; }
+  if (!Object.keys(data).length) { alert('No CryptoFolio data found in this browser.'); return; }
+  const payload = JSON.stringify({ format:'cryptofolio.backup', version:1, savedAt:new Date().toISOString(), app:'CryptoFolio', data }, null, 2);
+  const blob = new Blob([payload], { type:'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'cryptofolio-backup-' + new Date().toISOString().slice(0,10) + '.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+  alert('Backup downloaded — check your Downloads folder.');
+})();
