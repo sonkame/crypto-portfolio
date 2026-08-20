@@ -291,6 +291,23 @@ html:not(.view-home) #page-home { display: none; }
   vertical-align: middle;
 }
 #page-app .coin-sym { color: var(--muted); font-size: 12px; }
+/* Range-breakout badge in the market table (breakouts.js). Only ever rendered
+   for a coin that currently has a confirmed break, so there is no "off" state
+   to style - absence of a break means absence of the element. */
+#page-app .bo-badge {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  cursor: help;
+}
+#page-app .bo-badge.up { color: var(--green); background: rgba(22, 199, 132, 0.12); border-color: rgba(22, 199, 132, 0.35); }
+#page-app .bo-badge.down { color: var(--red); background: rgba(234, 57, 67, 0.12); border-color: rgba(234, 57, 67, 0.35); }
 #page-app .spark { width: 120px; height: 36px; display: block; }
 #page-app .spark polyline { fill: none; stroke-width: 1.5; }
 #page-app .spark.up polyline { stroke: var(--green); }
@@ -579,6 +596,49 @@ html:not(.view-home) #page-home { display: none; }
 #page-app .an-cat-bar span { display: block; height: 100%; min-width: 2px; }
 #page-app .an-cat-legend { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; }
 #page-app .an-cat-note { font-size: 12px; margin: 10px 0 0; }
+/* ----- Range Breakouts card (see the breakouts.js section) ----- */
+/* Full width: it's a 9-column scanner table, not a chart - it can't share a
+   row with the donut without horizontal scrolling on every desktop width. */
+#page-app #an-breakout-card { grid-column: 1 / -1; }
+/* Empty portfolio: keep the market-wide breakout card, drop the four cards
+   that have no holdings to draw from (see Analytics.refresh). */
+#page-app .an-grid.bo-only > .an-card { display: none; }
+#page-app .an-grid.bo-only > #an-breakout-card { display: block; }
+#page-app .an-bo-sub { margin: -4px 0 14px; }
+#page-app .an-bo-wrap { position: relative; overflow-x: auto; min-height: 64px; }
+#page-app .an-bo-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 760px; }
+#page-app .an-bo-table th {
+  padding: 0 10px 8px;
+  text-align: right;
+  font-weight: 500;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+#page-app .an-bo-table td { padding: 9px 10px; border-top: 1px solid var(--border); text-align: right; white-space: nowrap; }
+#page-app .an-bo-table th:first-child, #page-app .an-bo-table td:first-child { text-align: left; padding-left: 0; }
+#page-app .an-bo-table th:last-child, #page-app .an-bo-table td:last-child { padding-right: 0; }
+#page-app .an-bo-table tbody tr:hover { background: var(--bg-3); }
+#page-app .an-bo-table .coin-cell img { width: 20px; height: 20px; }
+#page-app .an-bo-table .coin-name { max-width: 120px; }
+#page-app .bo-status {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+}
+#page-app .bo-status.up { color: var(--green); background: rgba(22, 199, 132, 0.12); border-color: rgba(22, 199, 132, 0.35); }
+#page-app .bo-status.down { color: var(--red); background: rgba(234, 57, 67, 0.12); border-color: rgba(234, 57, 67, 0.35); }
+#page-app .bo-status.near { color: var(--muted); background: var(--bg-3); border-color: var(--border); }
+#page-app .bo-strength { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+#page-app .bo-bar { width: 56px; height: 5px; border-radius: 999px; background: var(--bg-3); overflow: hidden; flex-shrink: 0; }
+#page-app .bo-bar span { display: block; height: 100%; background: var(--accent); }
+#page-app .an-bo-table .cell-sub { font-weight: 400; }
+#page-app #an-bo-foot { line-height: 1.6; }
 #page-app .modal {
   position: fixed;
   top: 50%;
@@ -1187,6 +1247,7 @@ html:not(.view-home) #page-home { display: none; }
 }
 @media (max-width: 640px) {
   #page-app .col-spark { display: none; }
+  #page-app #market-table .bo-badge { display: none; } /* optional decoration - drops out with the optional columns */
   #page-app .data-table { min-width: 420px; }
   #page-app .header-inner { gap: 10px; }
   #page-app .status { width: 100%; margin-left: 0; order: 3; }
@@ -1834,6 +1895,37 @@ if (VIEW === 'home') {
           <ul class="legend an-cat-legend" id="an-cat-legend"></ul>
           <p class="an-cat-note muted" id="an-cat-note"></p>
         </div>
+        <!-- Range Breakouts: automated technical measurements only. Deliberately
+             carries no entry/stop/target levels and no long/short bias - see the
+             breakouts.js section for why those were cut. -->
+        <div class="an-card" id="an-breakout-card">
+          <div class="an-card-head">
+            <h3>Range Breakouts</h3>
+            <button class="btn small" id="an-bo-refresh" type="button">Refresh</button>
+          </div>
+          <p class="an-cat-note muted an-bo-sub">Technical measurements only — not trading signals.</p>
+          <div class="an-bo-wrap">
+            <table class="an-bo-table" id="an-bo-table">
+              <thead>
+                <tr>
+                  <th>Coin</th>
+                  <th>Status</th>
+                  <th>Price</th>
+                  <th>Range high / low</th>
+                  <th>Vol vs avg</th>
+                  <th>RSI(14)</th>
+                  <th>ATR(14)</th>
+                  <th>Trend</th>
+                  <th>Signal strength</th>
+                </tr>
+              </thead>
+              <tbody id="an-bo-body"></tbody>
+            </table>
+            <div class="an-loading hidden" id="an-bo-loading">Scanning…</div>
+            <p class="empty hidden" id="an-bo-empty">No range breakouts right now.</p>
+          </div>
+          <p class="an-cat-note muted" id="an-bo-foot"></p>
+        </div>
       </div>
     </div>
 
@@ -2468,7 +2560,11 @@ const Market = (() => {
       + '<td class="num muted">' + (c.market_cap_rank ?? '—') + '</td>'
       + '<td><div class="coin-cell"><img src="' + esc(c.image || BLANK_IMG) + '" alt="" loading="lazy" width="24" height="24">'
       + '<span class="coin-name">' + esc(c.name) + '</span>'
-      + '<span class="coin-sym">' + esc((c.symbol || '').toUpperCase()) + '</span></div></td>'
+      + '<span class="coin-sym">' + esc((c.symbol || '').toUpperCase()) + '</span>'
+      // Synchronous, cache-only, returns '' unless this coin has a confirmed
+      // break right now - the market table must never trigger or await a scan.
+      + Breakouts.badgeHTML(c)
+      + '</div></td>'
       + '<td class="num">' + fmtUSD(c.current_price) + '</td>'
       + pctCell(c.price_change_percentage_1h_in_currency, 'col-1h')
       + pctCell(c.price_change_percentage_24h_in_currency)
@@ -3924,12 +4020,18 @@ const Analytics = (() => {
 
     if (!holdings.length || !entries.length || total <= 0) {
       empty.classList.remove('hidden');
-      grid.classList.add('hidden');
+      // Range Breakouts is market-wide, not derived from holdings, so it stays
+      // useful with an empty portfolio - the four portfolio-dependent cards
+      // (which would draw nothing) are the ones hidden here, not the grid.
+      grid.classList.remove('hidden');
+      grid.classList.add('bo-only');
       historyNote.classList.add('hidden');
+      Breakouts.onAnalyticsShown();
       return;
     }
     empty.classList.add('hidden');
     grid.classList.remove('hidden');
+    grid.classList.remove('bo-only');
 
     if (noHistoryCount > 0) {
       historyNote.textContent = noHistoryCount + ' coin' + (noHistoryCount > 1 ? 's' : '')
@@ -3945,6 +4047,9 @@ const Analytics = (() => {
     renderChart('perf', perfDays);
     renderChart('pnl', pnlDays);
     renderCategories(entries, total);
+    // Portfolio-independent (it scans the top 100 by market cap), but it lives in
+    // this grid, so it's only worth scanning once the grid is actually on screen.
+    Breakouts.onAnalyticsShown();
   }
 
   /* Called by Portfolio whenever holdings/active portfolio change or the tab is shown.
@@ -3981,9 +4086,588 @@ const Analytics = (() => {
       pnlDays = days;
       renderChart('pnl', days);
     });
+    Breakouts.init();
   }
 
   return { init, notify };
+})();
+</script>
+
+<script>
+/* ==================== breakouts.js ====================
+   Range Breakouts: hourly-candle technical measurements over the top-100 coins,
+   shown as a ranked list in Analytics and as a small badge in the market table.
+
+   WHY a real exchange and not CoinGecko: a range break is only worth showing
+   with per-candle volume confirmation, and the keyless /coins/markets payload
+   carries a single 24h `total_volume` scalar plus a close-only 168-point
+   sparkline. There is no volume series to confirm against and no true high/low
+   for ATR, so this runs on genuine OHLCV or it doesn't run - a coin with no
+   exchange pair gets no row and no badge rather than a fabricated one.
+
+   WHY data-api.binance.vision and never api.binance.com: the main host answers
+   HTTP 451 "Service unavailable from a restricted location" from US IPs while
+   the public market-data mirror answers 200 with `access-control-allow-origin: *`
+   from the same IP. Both re-verified live 2026-08-20. The mirror is Binance's
+   own documented keyless base for public market data (security type NONE), so
+   there is no key to leak from a static page.
+
+   WHY there are no entry/stop/take-profit levels or a long/short bias here:
+   those are trade instructions, not measurements. TP1..3 in particular are
+   literally entry + n x (entry - stop) - pure arithmetic that carries zero
+   market information while reading to a user like a prediction. Everything in
+   this card is something that actually happened to price or volume.
+
+   WHY its own request pool: the CoinGecko queue in api.js is serial with a
+   400 ms gap because CoinGecko's keyless budget is ~5-6 calls/min. Binance's
+   is 6000 request-weight/min and klines cost 2, so a 60-symbol scan is 120
+   weight (2% of budget). Sharing the CoinGecko queue would make the scan take
+   ~100 s and starve every Analytics widget behind it. */
+const Breakouts = (() => {
+  const BINANCE = 'https://data-api.binance.vision/api/v3';
+  const OKX = 'https://www.okx.com/api/v5';
+
+  const INTERVAL = '1h';
+  const FETCH_LIMIT = 300;   // 299 usable once the still-forming candle is dropped
+  const RANGE_N = 20;        // lookback candles that define the range
+  const VOL_EMA_N = 20;
+  const VOL_MULT = 1.2;      // volume-confirmation threshold
+  const ATR_N = 14;
+  const RSI_N = 14;
+  const EMA_SLOW_N = 200;
+  const NEAR_ATR = 0.5;      // "Approaching" = within 0.5 x ATR of the level
+  const MIN_CANDLES = 60;
+  const MAX_STALE_MS = 3 * 60 * 60 * 1000; // delisted pairs serve 200 OK with year-old candles
+  const MIN_QUOTE_VOL = 50000;             // median 1h quote volume floor, USD
+  const SCAN_TOP_N = 100;
+  const MAX_ROWS = 25;
+
+  const POOL_CONCURRENCY = 4;
+  const BINANCE_GAP = 120;   // ms between dispatches; 6000 weight/min is far above this
+  const OKX_GAP = 60;        // OKX documents 40 req / 2 s for /market/candles
+  const REQ_TIMEOUT = 12000;
+  const BLOCK_MS = 10 * 60 * 1000; // 429/418 lockout - Binance IP bans run 2 min to 3 days
+  const REFRESH_MIN_GAP = 60 * 1000;
+
+  const MAP_TTL = 24 * 60 * 60 * 1000;
+  const SCAN_TTL = 15 * 60 * 1000;
+  const K_BINANCE_MAP = 'cryptofolio.cache.binance.map';
+  const K_OKX_MAP = 'cryptofolio.cache.okx.map';
+  const K_SCAN = 'cryptofolio.cache.breakout.scan';
+
+  /* A break on a dollar peg or a tokenized T-bill is noise, not information. */
+  const STABLE = new Set(('USDT USDC DAI TUSD FDUSD PYUSD USDD GUSD EURC EURS USDE USDS '
+    + 'FRAX LUSD CRVUSD GHO USDG USDY USYC BUIDL OUSG USTB AUSD USDF USD0 USDTB USX YLDS '
+    + 'RLUSD').split(' '));
+
+  const DISCLAIMER = 'Not financial advice. Automated technical measurements of past price '
+    + 'and volume, shown for information only — not signals, recommendations, or predictions. '
+    + 'Do your own research.';
+
+  let binanceDisabled = false;  // session flag, set on 451/403
+  let blockedUntil = 0;         // session flag, set on 429/418
+  let scanning = false;
+  let lastManual = 0;
+  let index = null;             // CoinGecko id -> row, hydrated lazily from cache
+  let indexAt = 0;
+  const INDEX_MEMO_MS = 30 * 1000; // badgeHTML runs once per market row - memo the parse
+
+  /* ----- storage (same shape as api.js's readCache/writeCache/readTimed) ----- */
+
+  function readCache(key) {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  }
+  function writeCache(key, data) {
+    try { localStorage.setItem(key, JSON.stringify({ t: Date.now(), data })); } catch {}
+  }
+  function readTimed(key, ttl) {
+    const c = readCache(key);
+    return c && Date.now() - c.t < ttl ? c.data : null;
+  }
+
+  /* ----- transport ----- */
+
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  /* Throws a tagged error instead of returning it, so a single catch in the
+     worker can classify without inspecting response objects everywhere. */
+  async function getJSON(url) {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), REQ_TIMEOUT);
+    try {
+      // No credentials, no custom headers: OKX sets a Cloudflare __cf_bm cookie
+      // that a default fetch() correctly ignores, and adding headers would turn
+      // these simple GETs into preflighted requests.
+      const res = await fetch(url, { signal: ctl.signal });
+      if (!res.ok) {
+        const err = new Error('HTTP ' + res.status);
+        err.status = res.status;
+        throw err;
+      }
+      return await res.json();
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /* Bounded worker pool with a global paced dispatch gate. Deliberately shares
+     nothing with api.js's enqueue() - different host, different budget. */
+  function makePool(gap) {
+    let nextSlot = 0;
+    return async function run(items, worker, shouldStop) {
+      const out = [];
+      let cursor = 0;
+      async function gate() {
+        const now = Date.now();
+        const slot = Math.max(now, nextSlot);
+        nextSlot = slot + gap;
+        if (slot > now) await sleep(slot - now);
+      }
+      async function runner() {
+        for (;;) {
+          if (shouldStop()) return;
+          const i = cursor++;
+          if (i >= items.length) return;
+          await gate();
+          if (shouldStop()) return;
+          const r = await worker(items[i]);
+          if (r) out.push(r);
+        }
+      }
+      const n = Math.min(POOL_CONCURRENCY, items.length);
+      await Promise.all(Array.from({ length: n }, runner));
+      return out;
+    };
+  }
+
+  /* ----- symbol maps ----- */
+
+  async function binanceMap() {
+    const cached = readTimed(K_BINANCE_MAP, MAP_TTL);
+    if (cached) return cached;
+    // symbolStatus=TRADING&showPermissionSets=false is the same weight (20) as the
+    // unfiltered call but 2.4 MB instead of 17 MB, for the identical 484 USDT pairs.
+    const r = await getJSON(BINANCE + '/exchangeInfo?symbolStatus=TRADING&showPermissionSets=false');
+    const map = {};
+    for (const s of (r.symbols || [])) {
+      if (s.quoteAsset !== 'USDT' || s.status !== 'TRADING' || !s.isSpotTradingAllowed) continue;
+      const base = String(s.baseAsset || '').toUpperCase();
+      if (base && !map[base]) map[base] = s.symbol; // first wins
+    }
+    writeCache(K_BINANCE_MAP, map);
+    return map;
+  }
+
+  async function okxMap() {
+    const cached = readTimed(K_OKX_MAP, MAP_TTL);
+    if (cached) return cached;
+    const r = await getJSON(OKX + '/public/instruments?instType=SPOT');
+    if (!r || r.code !== '0') throw new Error('OKX code ' + (r && r.code));
+    const map = {};
+    for (const i of (r.data || [])) {
+      if (i.quoteCcy !== 'USDT' || i.state !== 'live') continue;
+      const base = String(i.baseCcy || '').toUpperCase();
+      if (base && !map[base]) map[base] = i.instId;
+    }
+    writeCache(K_OKX_MAP, map);
+    return map;
+  }
+
+  /* ----- indicators ----- */
+
+  function ema(series, n) {
+    if (series.length < n) return null;
+    let e = 0;
+    for (let i = 0; i < n; i++) e += series[i];
+    e /= n;
+    const k = 2 / (n + 1);
+    for (let i = n; i < series.length; i++) e = series[i] * k + e * (1 - k);
+    return e;
+  }
+
+  function wilder(series, n) {
+    if (series.length < n) return null;
+    let r = 0;
+    for (let i = 0; i < n; i++) r += series[i];
+    r /= n;
+    for (let i = n; i < series.length; i++) r = (r * (n - 1) + series[i]) / n;
+    return r;
+  }
+
+  function atrOf(c, n) {
+    const tr = [];
+    for (let i = 1; i < c.length; i++) {
+      tr.push(Math.max(c[i].h - c[i].l,
+        Math.abs(c[i].h - c[i - 1].c),
+        Math.abs(c[i].l - c[i - 1].c)));
+    }
+    return wilder(tr, n);
+  }
+
+  function rsiOf(closes, n) {
+    const gain = [], loss = [];
+    for (let i = 1; i < closes.length; i++) {
+      const d = closes[i] - closes[i - 1];
+      gain.push(Math.max(0, d));
+      loss.push(Math.max(0, -d));
+    }
+    const ag = wilder(gain, n), al = wilder(loss, n);
+    if (ag == null || al == null) return null;
+    if (al === 0) return 100;
+    return 100 - 100 / (1 + ag / al);
+  }
+
+  function median(a) {
+    if (!a.length) return 0;
+    const s = [...a].sort((x, y) => x - y);
+    const m = s.length >> 1;
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+  }
+
+  const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
+  /* ----- normalise + validate ----- */
+
+  function normalise(raw, source) {
+    if (!Array.isArray(raw) || !raw.length) return null;
+    const rows = source === 'okx' ? [...raw].reverse() : raw;
+    let c = rows.map(r => ({
+      t: +r[0],
+      o: parseFloat(r[1]), h: parseFloat(r[2]), l: parseFloat(r[3]), c: parseFloat(r[4]),
+      v: parseFloat(r[5]),
+      qv: parseFloat(source === 'okx' ? r[6] : r[7]),
+      closeT: source === 'okx' ? +r[0] + 3600000 : +r[6],
+      confirm: source === 'okx' ? r[8] : null,
+    }));
+
+    // The newest row is a live, still-changing candle on BOTH sources. Including
+    // it makes the status flip back and forth within the hour (repainting).
+    c = source === 'okx'
+      ? c.filter(x => x.confirm === '1')
+      : c.filter(x => x.closeT <= Date.now());
+
+    if (c.length < MIN_CANDLES) return null;
+    for (const x of c) {
+      if (!isFinite(x.c) || !isFinite(x.h) || !isFinite(x.l) || !isFinite(x.v)) return null;
+    }
+
+    // A DELISTED pair returns HTTP 200 with candles that are years old, not a 400
+    // (confirmed: MATICUSDT still serves Sep-2024 candles). Without this guard a
+    // two-year-old "breakout" would ship as current.
+    if (Date.now() - c[c.length - 1].closeT > MAX_STALE_MS) return null;
+
+    if (median(c.slice(-RANGE_N).map(x => x.qv).filter(isFinite)) < MIN_QUOTE_VOL) return null;
+    return c;
+  }
+
+  /* ----- core computation ----- */
+
+  function score(o) {
+    const sVol = clamp((o.volRatio - 1) / (VOL_MULT * 2 - 1), 0, 1) * 35;
+    const brk = o.atr > 0
+      ? (o.dir === 'up' ? (o.price - o.rangeHigh) / o.atr : (o.rangeLow - o.price) / o.atr)
+      : 0;
+    const sBrk = clamp(brk, 0, 1) * 25;
+    const sTrend = (o.dir === 'up' && o.trend === 'above') || (o.dir === 'down' && o.trend === 'below')
+      ? 20 : o.trend === 'unknown' ? 10 : 0;
+    const r = o.rsi;
+    const sRsi = o.dir === 'up'
+      ? (r >= 55 && r <= 72 ? 20 : r > 72 ? 6 : r >= 45 ? 12 : 4)
+      : (r <= 45 && r >= 28 ? 20 : r < 28 ? 6 : r <= 55 ? 12 : 4);
+    let raw = sVol + sBrk + sTrend + sRsi;
+    if (o.status === 'Approaching') raw *= 0.6; // unconfirmed conditions rank below confirmed ones
+    return Math.round(clamp(raw, 0, 100));
+  }
+
+  function analyse(c) {
+    const n = c.length;
+    const cur = c[n - 1];                        // most recent CLOSED candle
+    const look = c.slice(n - 1 - RANGE_N, n - 1); // the RANGE_N candles before it
+    if (look.length < RANGE_N) return null;
+
+    const price = cur.c;
+    const rangeHigh = Math.max(...look.map(x => x.h));
+    const rangeLow = Math.min(...look.map(x => x.l));
+    const atr = atrOf(c, ATR_N);
+    const rsi = rsiOf(c.map(x => x.c), RSI_N);
+    if (atr == null || rsi == null || !isFinite(price) || price <= 0) return null;
+
+    const ema200 = n >= EMA_SLOW_N ? ema(c.map(x => x.c), EMA_SLOW_N) : null;
+    const volEma = ema(look.map(x => x.v), VOL_EMA_N);
+    const volRatio = volEma > 0 ? cur.v / volEma : 0;
+    const volOK = volRatio >= VOL_MULT;
+
+    const brokeUp = price > rangeHigh;
+    const brokeDown = price < rangeLow;
+    const distUp = atr > 0 ? (rangeHigh - price) / atr : 999;
+    const distDown = atr > 0 ? (price - rangeLow) / atr : 999;
+
+    let status, dir;
+    if (brokeUp && volOK) { status = 'Breakout'; dir = 'up'; }
+    else if (brokeDown && volOK) { status = 'Breakdown'; dir = 'down'; }
+    else if (brokeUp) { status = 'Approaching'; dir = 'up'; }      // level cleared, volume not confirming
+    else if (brokeDown) { status = 'Approaching'; dir = 'down'; }
+    else if (distUp <= NEAR_ATR) { status = 'Approaching'; dir = 'up'; }
+    else if (distDown <= NEAR_ATR) { status = 'Approaching'; dir = 'down'; }
+    else return null;                                              // nothing to show
+
+    const trend = ema200 == null ? 'unknown' : price > ema200 ? 'above' : 'below';
+    const out = {
+      price, rangeHigh, rangeLow, atr, rsi, volRatio,
+      atrPct: atr / price * 100, status, dir, trend,
+    };
+    out.score = score(out);
+    return out;
+  }
+
+  /* ----- scan ----- */
+
+  function candidates() {
+    const list = (state.markets || [])
+      .filter(c => c.market_cap_rank != null && c.market_cap_rank <= SCAN_TOP_N)
+      .sort((a, b) => a.market_cap_rank - b.market_cap_rank);
+    const out = [];
+    for (const c of list) {
+      // CoinCodex tail coins have no CoinGecko id scheme and generally no
+      // exchange listing - mirrors the guard used by the analytics widgets.
+      if (c._source === 'coincodex' || String(c.id).startsWith('cc:')) continue;
+      if (String(c.id).startsWith('tradable-')) continue;
+      const sym = String(c.symbol || '').toUpperCase();
+      if (!sym || STABLE.has(sym) || /^(USD|EUR|GBP|JPY)/.test(sym)) continue;
+      out.push({ id: c.id, symbol: sym, name: c.name, image: c.image });
+    }
+    return out;
+  }
+
+  async function scan() {
+    if (scanning) return null;
+    scanning = true;
+    let aborted = false;
+    let failed = 0;
+    try {
+      const cands = candidates();
+      if (!cands.length) return null;
+
+      let bmap = {};
+      if (!binanceDisabled && Date.now() >= blockedUntil) {
+        try {
+          bmap = await binanceMap();
+        } catch (e) {
+          if (e.status === 451 || e.status === 403) binanceDisabled = true;
+          if (e.status === 429 || e.status === 418) blockedUntil = Date.now() + BLOCK_MS;
+          bmap = {};
+        }
+      }
+
+      // Rank order + first-wins means the highest-ranked CoinGecko coin claims a
+      // colliding ticker; lower-ranked namesakes are skipped rather than guessed.
+      const used = new Set();
+      const bJobs = [], unresolved = [];
+      for (const c of cands) {
+        const pair = bmap[c.symbol];
+        if (pair && !used.has(pair)) { used.add(pair); bJobs.push({ ...c, pair, source: 'binance' }); }
+        else unresolved.push(c);
+      }
+
+      let oJobs = [];
+      if (unresolved.length) {
+        try {
+          const omap = await okxMap();
+          const oUsed = new Set();
+          for (const c of unresolved) {
+            const inst = omap[c.symbol];
+            if (inst && !oUsed.has(inst)) { oUsed.add(inst); oJobs.push({ ...c, pair: inst, source: 'okx' }); }
+          }
+        } catch (e) { /* no OKX tier this cycle - those coins simply get no row */ }
+      }
+
+      const total = bJobs.length + oJobs.length;
+      if (!total) return null;
+      const shouldStop = () => aborted || failed > Math.floor(total / 2);
+
+      async function work(job) {
+        try {
+          let raw;
+          if (job.source === 'binance') {
+            raw = await getJSON(BINANCE + '/klines?symbol=' + encodeURIComponent(job.pair)
+              + '&interval=' + INTERVAL + '&limit=' + FETCH_LIMIT);
+          } else {
+            const r = await getJSON(OKX + '/market/candles?instId=' + encodeURIComponent(job.pair)
+              + '&bar=1H&limit=' + FETCH_LIMIT);
+            if (!r || r.code !== '0') return null;
+            raw = r.data;
+          }
+          const c = normalise(raw, job.source);
+          if (!c) return null;
+          const a = analyse(c);
+          if (!a) return null;
+          return { id: job.id, symbol: job.symbol, name: job.name, image: job.image, ...a };
+        } catch (e) {
+          // 429/418 is the IP-ban path: hard-stop, never retry. Bans run 2 min - 3 days.
+          if (e.status === 429 || e.status === 418) {
+            blockedUntil = Date.now() + BLOCK_MS;
+            aborted = true;
+          } else if (e.status === 451 || e.status === 403) {
+            if (job.source === 'binance') binanceDisabled = true;
+            aborted = true;
+          } else {
+            failed++;
+          }
+          return null;
+        }
+      }
+
+      const bPool = makePool(BINANCE_GAP);
+      const oPool = makePool(OKX_GAP);
+      const rows = await bPool(bJobs, work, shouldStop);
+      if (!shouldStop() && oJobs.length) {
+        rows.push(...await oPool(oJobs, work, shouldStop));
+      }
+      if (shouldStop()) return null; // serve whatever is already cached instead
+
+      rows.sort((a, b) => b.score - a.score || b.volRatio - a.volRatio);
+      // Cache every hit (a few KB) but only list MAX_ROWS: the market badges are
+      // keyed off this same cache, and truncating here would silently drop the
+      // badge from a coin that genuinely broke out but ranked below the cut.
+      const result = { rows, scannedAt: Date.now(), coverage: total, scope: SCAN_TOP_N };
+      writeCache(K_SCAN, result);
+      index = null; // force re-hydration from the fresh cache
+      return result;
+    } catch (e) {
+      return null; // decorative feature: any unexpected failure degrades to "no data"
+    } finally {
+      scanning = false;
+    }
+  }
+
+  /* ----- market-tab badge (synchronous, cache-only) ----- */
+
+  /* Short memo rather than a permanent one: once the scan cache passes its TTL
+     readTimed() returns null and the badges disappear on the next market paint,
+     instead of a stale set persisting for the rest of the session. */
+  function hydrate() {
+    if (index && Date.now() - indexAt < INDEX_MEMO_MS) return index;
+    index = {};
+    indexAt = Date.now();
+    const cached = readTimed(K_SCAN, SCAN_TTL);
+    if (cached && Array.isArray(cached.rows)) {
+      for (const r of cached.rows) index[String(r.id)] = r;
+    }
+    return index;
+  }
+
+  function badgeHTML(c) {
+    try {
+      const b = hydrate()[String(c.id)];
+      if (!b || b.status === 'Approaching') return ''; // nothing at all, not a dimmed placeholder
+      const up = b.dir === 'up';
+      const tip = (up ? 'Price closed above' : 'Price closed below')
+        + ' its 20-hour range on rising volume. A technical observation, not advice.';
+      return '<span class="bo-badge ' + (up ? 'up' : 'down') + '" title="' + esc(tip) + '">'
+        + (up ? 'Breakout' : 'Breakdown') + '</span>';
+    } catch (e) { return ''; }
+  }
+
+  /* ----- analytics card ----- */
+
+  function rowHTML(r) {
+    const up = r.dir === 'up';
+    const statusCls = r.status === 'Approaching' ? 'near' : up ? 'up' : 'down';
+    const level = up ? r.rangeHigh : r.rangeLow;
+    const levelLabel = up ? 'Range high' : 'Range low';
+    const trend = r.trend === 'above' ? 'Above 200h avg'
+      : r.trend === 'below' ? 'Below 200h avg' : '—';
+    return '<tr>'
+      + '<td><div class="coin-cell">'
+      + '<img src="' + esc(r.image || BLANK_IMG) + '" alt="" loading="lazy" width="20" height="20">'
+      + '<span class="coin-name">' + esc(r.name) + '</span>'
+      + '<span class="coin-sym">' + esc(r.symbol) + '</span></div></td>'
+      + '<td><span class="bo-status ' + statusCls + '">' + r.status + '</span></td>'
+      + '<td>' + fmtUSD(r.price) + '</td>'
+      + '<td><span class="cell-main">' + fmtUSD(level) + '</span><br>'
+      + '<span class="cell-sub">' + levelLabel + '</span></td>'
+      + '<td class="' + (r.volRatio >= VOL_MULT ? 'up' : 'muted') + '">' + r.volRatio.toFixed(2) + '×</td>'
+      + '<td>' + r.rsi.toFixed(0) + '</td>'
+      + '<td>' + r.atrPct.toFixed(2) + '%</td>'
+      + '<td class="muted">' + trend + '</td>'
+      + '<td><span class="bo-strength"><span class="bo-bar"><span style="width:'
+      + r.score + '%"></span></span>' + r.score + '</span></td>'
+      + '</tr>';
+  }
+
+  function paint(result) {
+    const body = document.getElementById('an-bo-body');
+    const table = document.getElementById('an-bo-table');
+    const empty = document.getElementById('an-bo-empty');
+    const foot = document.getElementById('an-bo-foot');
+    if (!body) return;
+    const rows = (result && Array.isArray(result.rows) ? result.rows : []).slice(0, MAX_ROWS);
+    body.innerHTML = rows.map(rowHTML).join('');
+    table.classList.toggle('hidden', !rows.length);
+    empty.classList.toggle('hidden', !!rows.length);
+    // Same neutral copy whether the market is quiet, the host is geo-blocked or
+    // the network is down - the HTTP status is never surfaced to the user.
+    let tail = '';
+    if (result && result.scannedAt) {
+      const time = new Date(result.scannedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      tail = ' · Scanned ' + result.coverage + ' of top ' + (result.scope || SCAN_TOP_N) + ' · ' + time;
+    }
+    foot.textContent = DISCLAIMER + tail + ' · Market data: CoinGecko · Binance · OKX';
+  }
+
+  function setBusy(on) {
+    const el = document.getElementById('an-bo-loading');
+    if (el) el.classList.toggle('hidden', !on);
+    const btn = document.getElementById('an-bo-refresh');
+    if (btn) btn.disabled = on || Date.now() < blockedUntil;
+  }
+
+  /* Lazily refreshed, TTL-driven, and only ever called from Analytics. */
+  async function ensure(force) {
+    const cached = readTimed(K_SCAN, SCAN_TTL);
+    if (cached && !force) { paint(cached); return; }
+    paint(cached || readCacheResult());
+    if (scanning || Date.now() < blockedUntil) return;
+    setBusy(true);
+    const fresh = await scan();
+    setBusy(false);
+    paint(fresh || readCacheResult());
+    if (fresh) {
+      // Badges are read from cache at render time, so the market table only
+      // picks up a new scan on its next paint - do that now rather than making
+      // the user wait for the 60 s refresh tick.
+      try { Market.render(); } catch (e) { /* market view not ready yet */ }
+    }
+  }
+
+  function readCacheResult() {
+    const c = readCache(K_SCAN);
+    return c ? c.data : null;
+  }
+
+  function onAnalyticsShown() { ensure(false); }
+
+  function init() {
+    const btn = document.getElementById('an-bo-refresh');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+      if (Date.now() - lastManual < REFRESH_MIN_GAP || Date.now() < blockedUntil) return;
+      lastManual = Date.now();
+      ensure(true);
+    });
+    const th = document.querySelector('#an-bo-table thead th:last-child');
+    if (th) {
+      th.title = 'Ranks the conditions listed in this row only: volume vs its 20h average '
+        + '(35), how far beyond the range edge in ATR (25), agreement with the 200h average '
+        + '(20), RSI position (20). Unconfirmed rows are scaled to 60%. Not a rating of an '
+        + 'opportunity.';
+    }
+  }
+
+  return { init, badgeHTML, onAnalyticsShown };
 })();
 </script>
 
