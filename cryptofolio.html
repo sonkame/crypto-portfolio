@@ -1957,7 +1957,18 @@ if (VIEW === 'home') {
       </div>
       <div class="pf-head-right">
         <div class="pf-actions" id="cvs-actions">
-          <button class="btn" id="cvs-add-btn">＋ <span data-i18n="Add CVS file">Add CVS file</span></button>
+          <!-- Import-source picker. Placeholder entries: they open nothing and
+               carry no handler yet - the per-source CVS parsing is still to be
+               specified. -->
+          <div class="menu-wrap">
+            <button class="btn" id="cvs-add-btn" aria-haspopup="true" aria-expanded="false">＋ <span data-i18n="Add CVS file">Add CVS file</span></button>
+            <div class="menu hidden" id="cvs-add-menu">
+              <button data-src="futures">＋ <span data-i18n="Future Trade history">Future Trade history</span></button>
+              <button data-src="deposit">＋ <span data-i18n="Deposit History">Deposit History</span></button>
+              <button data-src="withdraw">＋ <span data-i18n="Withdraw History">Withdraw History</span></button>
+              <button data-src="spot">＋ <span data-i18n="Trade Spot History">Trade Spot History</span></button>
+            </div>
+          </div>
           <button class="btn" id="cvs-remove-btn">− <span data-i18n="Remove CVS file">Remove CVS file</span></button>
           <div class="menu-wrap">
             <button class="btn icon" id="cvs-menu-btn" aria-label="Transactions menu">⋮</button>
@@ -5659,9 +5670,24 @@ const TxSets = (() => {
     });
     document.getElementById('cvs-new-btn').addEventListener('click', () => showModal('create'));
 
+    /* Import-source dropdown. The entries are placeholders for now - opening
+       and closing the menu is all that is wired; picking a source does
+       nothing until the per-source CVS parsing is specified. */
+    const addBtn = document.getElementById('cvs-add-btn');
+    const addMenu = document.getElementById('cvs-add-menu');
+    addBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      const open = addMenu.classList.toggle('hidden') === false;
+      addBtn.setAttribute('aria-expanded', String(open));
+      document.getElementById('cvs-menu').classList.add('hidden'); // never both open at once
+    });
+    addMenu.addEventListener('click', e => e.stopPropagation()); // picking a source shouldn't dismiss it yet
+
     document.getElementById('cvs-menu-btn').addEventListener('click', e => {
       e.stopPropagation();
       document.getElementById('cvs-menu').classList.toggle('hidden');
+      addMenu.classList.add('hidden');
+      addBtn.setAttribute('aria-expanded', 'false');
     });
     document.getElementById('cvs-menu').addEventListener('click', e => {
       const b = e.target.closest('button[data-act]');
@@ -5672,6 +5698,15 @@ const TxSets = (() => {
     });
     document.addEventListener('click', e => {
       if (!e.target.closest('#cvs-menu-btn')) document.getElementById('cvs-menu').classList.add('hidden');
+      if (!e.target.closest('#cvs-add-btn') && !e.target.closest('#cvs-add-menu')) {
+        addMenu.classList.add('hidden');
+        addBtn.setAttribute('aria-expanded', 'false');
+      }
+    });
+    document.addEventListener('keydown', e => {
+      if (e.key !== 'Escape') return;
+      addMenu.classList.add('hidden');
+      addBtn.setAttribute('aria-expanded', 'false');
     });
 
     document.getElementById('nt-icon').addEventListener('click', () => {
