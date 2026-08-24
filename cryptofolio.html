@@ -1263,6 +1263,496 @@ html:not(.view-home) #page-home { display: none; }
   #page-app #market-table .coin-name { max-width: 92px; overflow: hidden; text-overflow: ellipsis; }
 }
 
+/* ==================== add-coins modal (Portfolio "+ Add coin" picker) ==================== */
+/* ----- add coins modal ----- */
+/* Every rule below is scoped to #page-app: this file is a merged app+landing
+   document (see the two banner comments) and an unscoped .ac-* rule would also
+   apply inside #page-home, which shares --border/--text/--radius names. */
+
+/* A wide modifier rather than an edit to .modal - four other modals (tx, rm,
+   backup, new-portfolio) rely on .modal staying 480px and self-scrolling. */
+#page-app .modal.modal-wide {
+  --ac-pad: 22px;
+  width: min(1100px, 94vw);
+  height: min(86vh, 900px);
+  max-height: none;
+  padding: 0;
+  /* The body pane owns the scrolling, so the search, the tx section and the
+     footer stay put; hidden here also clips the panes to the corner radius. */
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(22px) saturate(140%);
+  -webkit-backdrop-filter: blur(22px) saturate(140%); /* Safari (incl. the Mac we're sharing to) */
+}
+#page-app .modal-wide .modal-close { top: 16px; right: 18px; z-index: 3; }
+#page-app .modal.modal-wide h3 {
+  padding: 20px var(--ac-pad) 14px;
+  margin: 0;
+  flex-shrink: 0;
+}
+
+/* Qualified with .modal-wide throughout this rule: the shared
+   `#page-app input[type="search"], …` block is (1,1,1) and would otherwise
+   outrank a plain `.ac-search`, keeping its width:100% and its background
+   shorthand (which resets the magnifier below to none). */
+#page-app .modal-wide .ac-search {
+  display: block;
+  /* Explicit width, because a column-flex item stretched to `auto` ignores
+     these side margins and overhangs the modal, which then clips it. */
+  width: calc(100% - var(--ac-pad) * 2);
+  margin: 0 var(--ac-pad) 12px;
+  padding-left: 36px;
+  /* color-scheme makes Chrome's native search-clear glyph render light. */
+  color-scheme: dark;
+  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%238b93a7' stroke-width='1.6'><circle cx='7' cy='7' r='4.6'/><path d='M10.6 10.6 14 14' stroke-linecap='round'/></svg>");
+  background-repeat: no-repeat;
+  background-position: 13px center;
+  background-size: 15px 15px;
+  flex-shrink: 0;
+}
+
+#page-app .ac-cats {
+  display: flex;
+  gap: 8px;
+  padding: 0 var(--ac-pad) 14px;
+  overflow-x: auto;
+  /* The pill row is scrolled horizontally; a visible bar would steal a third
+     of the pill height on the platforms that reserve space for it. */
+  scrollbar-width: none;
+  flex-shrink: 0;
+}
+#page-app .ac-cats::-webkit-scrollbar { display: none; }
+#page-app .ac-cat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+}
+#page-app .ac-cat:hover { color: var(--text); border-color: #39415a; }
+#page-app .ac-cat.active {
+  color: var(--lime);
+  border-color: rgba(163, 230, 53, 0.45);
+  background: rgba(163, 230, 53, 0.1);
+}
+
+#page-app .ac-body {
+  /* Basis 0, not auto: on auto the pane's (very tall) content claims most of
+     the modal and the tx stack below gets shrunk to a sliver instead. */
+  flex: 1 1 0;
+  /* Floor rather than 0, so a tall tx stack cannot squeeze the list to
+     nothing - but a vh term too, or on a short landscape phone the floor
+     itself is what pushes the footer out of the modal. */
+  min-height: min(200px, 26vh);
+  display: grid;
+  grid-template-columns: minmax(0, 62fr) minmax(0, 38fr);
+  grid-template-rows: minmax(0, 1fr);
+  border-top: 1px solid var(--border);
+}
+
+#page-app .ac-list {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 10px 14px var(--ac-pad);
+  outline: none;
+}
+#page-app .ac-list:focus-visible { box-shadow: inset 0 0 0 1px var(--accent); }
+#page-app .ac-group-label {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  /* Rows scroll under this and the modal surface is translucent, so the label
+     needs its own fill or the list ghosts straight through it. */
+  background: rgba(0, 0, 0, 0.86);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px); /* Safari */
+  padding: 10px 12px 7px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+}
+#page-app .ac-row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.13s ease;
+}
+#page-app .ac-row:hover { background: rgba(255, 255, 255, 0.045); }
+#page-app .ac-row:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
+#page-app .ac-row.selected { background: rgba(163, 230, 53, 0.07); }
+#page-app .ac-row-img {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--bg-3);
+}
+#page-app .ac-row-name {
+  font-size: 14px;
+  font-weight: 600;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#page-app .ac-row-sym {
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+#page-app .ac-check {
+  margin-left: auto;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border: 2px solid var(--border);
+  border-radius: 50%;
+  transition: background-color 0.13s ease, border-color 0.13s ease;
+}
+#page-app .ac-row:hover .ac-check { border-color: var(--muted); }
+#page-app .ac-row.selected .ac-check {
+  border-color: var(--lime);
+  /* Tick as a background image, not a rotated ::after box - the pseudo-element
+     recipe needs different offsets under content-box vs border-box.
+     Dark tick, not white: white on --lime is only ~1.6:1. Same ink .btn.cta
+     already uses on the same lime. */
+  background: var(--lime) url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%2314210a' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'><path d='m3.5 8.4 3.1 3.1 5.9-6'/></svg>") center / 12px 12px no-repeat;
+}
+
+#page-app .ac-skeleton {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 12px;
+}
+#page-app .ac-skeleton::before,
+#page-app .ac-skeleton::after {
+  content: "";
+  background: var(--bg-3);
+  animation: ac-pulse 1.1s ease-in-out infinite alternate;
+}
+#page-app .ac-skeleton::before { width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0; }
+#page-app .ac-skeleton::after { width: 42%; max-width: 190px; height: 10px; border-radius: 5px; }
+@keyframes ac-pulse { from { opacity: 1; } to { opacity: 0.4; } }
+
+#page-app .ac-group-error {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  color: var(--red);
+  font-size: 13px;
+}
+#page-app .ac-empty {
+  padding: 14px 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+#page-app .ac-info {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px var(--ac-pad) 20px;
+  border-left: 1px solid var(--border);
+}
+#page-app .ac-info-empty {
+  padding: 28px 4px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+#page-app .ac-info-head {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0 0 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#page-app .ac-stats { margin: 0; }
+#page-app .ac-stat {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+}
+#page-app .ac-stat:last-child { border-bottom: none; }
+#page-app .ac-stat-k { font-size: 12.5px; color: var(--muted); white-space: nowrap; }
+#page-app .ac-stat-v {
+  margin: 0; /* the row may be a <dl>, whose <dd> carries a UA indent */
+  font-size: 13.5px;
+  font-weight: 600;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+/* Colour only, so an inline sparkline inherits it through currentColor.
+   Qualified with .modal-wide so it outranks .ac-spark's own muted colour
+   regardless of which of the two Role C puts the modifier on. */
+#page-app .modal-wide .ac-up { color: var(--green); }
+#page-app .modal-wide .ac-down { color: var(--red); }
+
+#page-app .ac-spark-label {
+  display: block;
+  margin: 16px 0 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+}
+#page-app .ac-spark {
+  height: 76px;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.02);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+}
+#page-app .ac-spark svg, #page-app .ac-spark img { width: 100%; height: 100%; display: block; }
+#page-app .ac-spark polyline {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  /* The polyline is drawn in data space and stretched by the viewBox, so an
+     ordinary stroke-width would come out squashed on one axis. */
+  vector-effect: non-scaling-stroke;
+}
+/* Green when the week closed up, red when it closed down. This has to be a
+   class rather than a stroke="" attribute on the polyline: var() is only
+   substituted inside CSS declarations, so the token would be dropped. */
+#page-app .ac-spark polyline.ac-up { stroke: var(--green); }
+#page-app .ac-spark polyline.ac-down { stroke: var(--red); }
+#page-app .ac-about h5 {
+  margin: 18px 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+#page-app .ac-about p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--muted);
+}
+
+/* Shrinkable, unlike the header and the footer: a long selection must give
+   space back to the card stack rather than push the footer out of the modal. */
+#page-app .ac-txwrap {
+  flex: 0 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+#page-app .ac-sep { border: none; border-top: 1px solid var(--border); margin: 0; }
+#page-app .ac-tx-title {
+  margin: 13px var(--ac-pad) 10px;
+  font-size: 14px;
+  font-weight: 700;
+}
+#page-app .ac-tx-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  /* Capped and self-scrolling: the contract keeps the footer pinned, so the
+     card stack cannot be allowed to grow the modal past its height. The px
+     term matters - the modal stops growing at 900px but 30vh does not. */
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: min(30vh, 260px);
+  overflow-y: auto;
+  padding: 1px var(--ac-pad) 12px;
+}
+#page-app .ac-tx {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+}
+#page-app .ac-tx-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 10px;
+  font-size: 14px;
+  font-weight: 600;
+}
+#page-app .ac-tx-head img { width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; }
+/* Segmented, not the underlined .tx-tabs: at card width an underline row reads
+   as a divider between the head and the field grid rather than as a control. */
+#page-app .ac-tx-tabs {
+  display: inline-flex;
+  gap: 2px;
+  margin-left: auto;
+  padding: 2px;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+#page-app .ac-tx-tab {
+  background: none;
+  border: none;
+  color: var(--muted);
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+#page-app .ac-tx-tab:hover { color: var(--text); }
+#page-app .ac-tx-tab.active { background: rgba(163, 230, 53, 0.14); color: var(--lime); }
+#page-app .ac-tx-del {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  padding: 3px 5px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+#page-app .ac-tx-del:hover { color: var(--red); background: rgba(234, 57, 67, 0.12); }
+#page-app .ac-tx-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+#page-app .ac-tx-grid > * { min-width: 0; }
+/* .modal-wide again for the same reason as .ac-search - the shared input rule
+   is (1,1,1) and a bare `.ac-tx-grid input` only ties with it. */
+#page-app .modal-wide .ac-tx-grid input { padding: 8px 10px; font-size: 13px; }
+#page-app .modal-wide .ac-tx-grid .tx-usemkt { padding: 7px 10px; font-size: 12px; }
+/* Kept visible here and hidden by the shared .hidden helper (or the hidden
+   attribute) that the transfer/buy switch toggles - a default display:none
+   would need a second class to undo. */
+#page-app .ac-tx-dir {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 13px;
+  color: var(--muted);
+}
+#page-app .ac-tx-dir[hidden] { display: none; }
+#page-app .ac-tx-dir label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+#page-app .ac-tx-dir input[type="radio"] { accent-color: var(--lime); }
+#page-app .ac-tx-err { margin: 9px 0 0; font-size: 12.5px; color: var(--red); }
+
+#page-app #ac-error { flex-shrink: 0; padding: 10px var(--ac-pad) 0; }
+
+#page-app .ac-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+  padding: 12px var(--ac-pad);
+  border-top: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.35);
+}
+#page-app .ac-count { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+#page-app .ac-foot .btn.cta { width: auto; min-width: 190px; }
+
+/* Thin scrollbars on the three internal scrollports: at this density a
+   platform-width bar cuts a visible notch out of the right-hand pane. */
+#page-app .ac-list, #page-app .ac-info, #page-app .ac-tx-list {
+  scrollbar-width: thin;
+  scrollbar-color: #2c3346 transparent;
+}
+#page-app .ac-list::-webkit-scrollbar,
+#page-app .ac-info::-webkit-scrollbar,
+#page-app .ac-tx-list::-webkit-scrollbar { width: 8px; }
+#page-app .ac-list::-webkit-scrollbar-thumb,
+#page-app .ac-info::-webkit-scrollbar-thumb,
+#page-app .ac-tx-list::-webkit-scrollbar-thumb {
+  background: #2c3346;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+@media (max-width: 860px) {
+  #page-app .modal.modal-wide { --ac-pad: 15px; height: min(92vh, 900px); }
+  #page-app .ac-body { min-height: min(150px, 26vh); grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  #page-app .ac-info {
+    order: -1; /* stats above the list once they no longer fit beside it */
+    /* Hard px cap, not vh alone: stacked, this is an auto grid track, so
+       whatever it takes comes straight out of the coin list underneath. */
+    max-height: min(30vh, 150px);
+    border-left: none;
+    border-bottom: 1px solid var(--border);
+  }
+  /* Tighter here too, for the same reason - the list is the point of the
+     screen and it is last in line for space. */
+  #page-app .ac-tx-list { max-height: min(26vh, 170px); }
+  #page-app .ac-tx-grid { grid-template-columns: minmax(0, 1fr); }
+}
+/* Short viewports (landscape phones, small restored windows). The list is the
+   last thing to be allotted space, so on these the two capped panels have to
+   give some back or it ends up a single row tall. */
+@media (max-height: 720px) {
+  #page-app .ac-tx-list { max-height: min(22vh, 140px); }
+}
+/* Only in the stacked layout: side by side, .ac-info is a full-height pane and
+   a max-height would just leave a hole beside the list. */
+@media (max-width: 860px) and (max-height: 720px) {
+  #page-app .ac-info { max-height: min(24vh, 120px); }
+}
+@media (max-width: 480px) {
+  #page-app .modal-wide h3 { padding-top: 16px; font-size: 17px; }
+  #page-app .ac-tx-head { flex-wrap: wrap; }
+  #page-app .ac-tx-tabs { margin-left: 0; order: 3; width: 100%; justify-content: space-between; }
+  #page-app .ac-tx-tab { flex: 1; }
+  #page-app .ac-tx-del { margin-left: auto; }
+  #page-app .ac-foot .btn.cta { min-width: 0; flex: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #page-app .ac-cat, #page-app .ac-row, #page-app .ac-check,
+  #page-app .ac-tx-tab, #page-app .ac-tx-del { transition: none; }
+  #page-app .ac-skeleton::before, #page-app .ac-skeleton::after { animation: none; }
+}
+
+/* ## Contract concerns
+   1. §4 specifies a white tick on the lime checked circle. That is ~1.6:1
+      against #a3e635; it is implemented as written, but a dark tick (#14210a,
+      the colour .btn.cta already uses on lime) would be legible.
+   2. §6 calls .ac-tx-dir "hidden by default". A default display:none would
+      force Role C to invent a reveal class, so the rule above ships visible and
+      relies on the existing .hidden helper (display:none !important, so it wins
+      over the flex here) or the hidden attribute. Role C should emit the node
+      as `class="ac-tx-dir hidden"`.
+   3. #ac-cats carries role="tablist" but the groups it scrolls to are not
+      tabpanels and stay simultaneously visible. Left as specified; a screen
+      reader will announce a tab relationship that does not exist. */
+
 /* ==================== landing view (was home.html) ==================== */
 /* Same fix as #page-app's wrapper above: GSAP pins this to position:fixed
    at init, so it - not #page-home's own (viewport-height-only) box - is
@@ -2149,6 +2639,34 @@ if (VIEW === 'home') {
   </form>
 </div>
 
+<!-- ADD COINS MODAL -->
+<div class="modal modal-wide" id="ac-modal" role="dialog" aria-modal="true" aria-labelledby="ac-title">
+  <button class="modal-close" data-ac-close aria-label="Close">×</button>
+  <h3 id="ac-title">Add coins</h3>
+
+  <input id="ac-search" class="ac-search" type="search" placeholder="Search" aria-label="Search coins" autocomplete="off">
+
+  <div class="ac-cats" id="ac-cats" role="tablist" aria-label="Coin categories"></div>
+
+  <div class="ac-body">
+    <div class="ac-list" id="ac-list" role="listbox" aria-multiselectable="true" tabindex="0"></div>
+    <aside class="ac-info" id="ac-info" aria-live="polite"></aside>
+  </div>
+
+  <div class="ac-txwrap hidden" id="ac-txwrap">
+    <hr class="ac-sep">
+    <h4 class="ac-tx-title">Transaction on coins</h4>
+    <div class="ac-tx-list" id="ac-tx-list"></div>
+  </div>
+
+  <p class="tx-error hidden" id="ac-error"></p>
+
+  <div class="ac-foot">
+    <span class="ac-count" id="ac-count">0 coins selected</span>
+    <button type="button" class="btn cta" id="ac-submit" disabled>Add Coins</button>
+  </div>
+</div>
+
 <!-- REMOVE COIN MODAL -->
 <div class="modal" id="rm-modal" role="dialog" aria-modal="true">
   <button class="modal-close" data-close aria-label="Close">×</button>
@@ -2504,7 +3022,12 @@ const API = (() => {
     return price != null ? price : null;
   }
 
-  return { fetchAll, fromCacheResult, fetchMarketChart, fetchCategories, fetchHistoryPrice };
+  /* The last five are internals exposed only so ACData (the "Add coins"
+     picker's data layer) can reuse this module's cache helpers and, above
+     all, its single serial queue — a second module opening its own fetch
+     path is exactly what blows the keyless rate limit. */
+  return { fetchAll, fromCacheResult, fetchMarketChart, fetchCategories, fetchHistoryPrice,
+    enqueue, getJSON, readCache, writeCache, readTimed };
 })();
 </script>
 
@@ -3588,7 +4111,7 @@ const Portfolio = (() => {
     document.getElementById('pf-new-btn').addEventListener('click', openNewPortfolio);
 
     // head actions
-    document.getElementById('pf-add-btn').addEventListener('click', () => openTxEditor(null, null));
+    document.getElementById('pf-add-btn').addEventListener('click', () => AddCoins.open());
     document.getElementById('pf-remove-btn').addEventListener('click', openRemoveModal);
     document.getElementById('pf-menu-btn').addEventListener('click', e => {
       e.stopPropagation();
@@ -3725,8 +4248,884 @@ const Portfolio = (() => {
     return !!p && p.holdings.some(h => h.coinId === coinId);
   }
 
-  return { init, render, has };
+  /* Bulk entry point for the "Add coins" picker, which submits one
+     transaction per selected coin at once. Applied all-or-nothing: the
+     balance checks run against a scratch copy that already includes the
+     earlier entries of the same batch (so buying then selling in one
+     submit works), and nothing is written to the store until every entry
+     has passed. Mirrors onSubmit's validation rules — keep the two in
+     step if either changes. */
+  function addTransactions(entries) {
+    const p = activePortfolio();
+    if (!p) return { ok: false, errors: [{ coinId: null, msg: 'Pick a portfolio first — Overview can’t hold coins.' }] };
+    if (!Array.isArray(entries) || !entries.length) return { ok: false, errors: [] };
+
+    const scratch = new Map();
+    function scratchFor(coinId) {
+      if (!scratch.has(coinId)) {
+        const raw = p.holdings.find(x => x.coinId === coinId);
+        scratch.set(coinId, { coinId, transactions: [...((raw && raw.transactions) || [])] });
+      }
+      return scratch.get(coinId);
+    }
+
+    const errors = [];
+    const staged = [];
+    for (const e of entries) {
+      const coinId = e.coinId;
+      const type = e.type;
+      const quantity = Number(e.quantity);
+      if (!coinId) { errors.push({ coinId: null, msg: 'Missing coin.' }); continue; }
+      if (!(quantity > 0)) { errors.push({ coinId, msg: 'Quantity must be greater than 0.' }); continue; }
+      const pricePerCoin = type === 'transfer' ? 0 : Number(e.pricePerCoin);
+      if (type !== 'transfer' && !(pricePerCoin >= 0)) { errors.push({ coinId, msg: 'Price must be 0 or more.' }); continue; }
+
+      const s = scratchFor(coinId);
+      if (type === 'sell' || (type === 'transfer' && e.direction === 'out')) {
+        const held = deriveHolding(s).amount;
+        if (quantity > held + 1e-9) {
+          errors.push({ coinId, msg: 'You only hold ' + held + ' — cannot ' + (type === 'sell' ? 'sell' : 'transfer out') + ' ' + quantity + '.' });
+          continue;
+        }
+      }
+
+      const tx = {
+        id: genId(),
+        type,
+        quantity,
+        pricePerCoin,
+        fees: type === 'transfer' ? 0 : (Number(e.fees) || 0),
+        date: e.date || Date.now(),
+        notes: (e.notes || '').trim(),
+      };
+      if (type === 'transfer') tx.direction = e.direction === 'out' ? 'out' : 'in';
+      s.transactions.push(tx);
+      staged.push({ coinId, tx });
+    }
+
+    if (errors.length) return { ok: false, errors };
+
+    for (const { coinId, tx } of staged) {
+      let raw = p.holdings.find(x => x.coinId === coinId);
+      if (!raw) { raw = { coinId, transactions: [] }; p.holdings.push(raw); }
+      raw.transactions.push(tx);
+    }
+    save();
+    render();
+    return { ok: true, errors: [] };
+  }
+
+  return { init, render, has, addTransactions };
 })();
+</script>
+
+<script>
+/* ==================== ac-data.js ====================
+   Add-coins modal: category lists, coin normalization, hover-panel data
+   (description + sparkline) and the local search index. Pure data layer —
+   no DOM access. Every network path is cached and routed through the
+   shared API.enqueue serial queue; list()/info()/spark() never throw. */
+const ACData = (() => {
+  const BASE = 'https://api.coingecko.com/api/v3';
+  const TRENDING_URL = BASE + '/search/trending';
+  const CACHE_TRENDING = 'cryptofolio.cache.actrending';
+  const TRENDING_TTL = 10 * 60 * 1000;
+  const CATEGORY_TTL = 30 * 60 * 1000;
+  const INFO_TTL = 7 * 24 * 60 * 60 * 1000;
+  const MIN_VOLUME = 1e6;
+  const SEARCH_CAP = 60;
+
+  const CATEGORIES = [
+    { id: 'trending',                   label: 'Trending',    icon: '🔥', kind: 'trending' },
+    { id: 'top50',                      label: 'Top 50',      icon: '📊', kind: 'local'    },
+    { id: 'gainers',                    label: 'Top Gainers', icon: '📈', kind: 'local'    },
+    { id: 'losers',                     label: 'Top Losers',  icon: '📉', kind: 'local'    },
+    { id: 'meme-token',                 label: 'Meme',        icon: '🐶', kind: 'category' },
+    { id: 'artificial-intelligence',    label: 'AI',          icon: '🤖', kind: 'category' },
+    { id: 'gaming',                     label: 'Gaming',      icon: '🎮', kind: 'category' },
+    { id: 'decentralized-finance-defi', label: 'DeFi',        icon: '🏦', kind: 'category' },
+    { id: 'layer-1',                    label: 'Layer 1',     icon: '⛓',  kind: 'category' },
+    { id: 'real-world-assets-rwa',      label: 'RWA',         icon: '🏛', kind: 'category' },
+  ];
+
+  /* ---- normalization ---- */
+
+  /* Accepts a /coins/markets-shaped object (CoinGecko OR the CoinCodex-tail
+     objects api.js synthesizes in mergeCoinCodexTail — same field names,
+     see api.js) and produces the shared NCoin shape every UI piece reads. */
+  function norm(c) {
+    const spark = c.sparkline_in_7d && c.sparkline_in_7d.price;
+    return {
+      id: c.id,
+      symbol: (c.symbol || '').toLowerCase(),
+      name: c.name,
+      image: c.image || BLANK_IMG,
+      price: c.current_price ?? null,
+      pct24h: c.price_change_percentage_24h_in_currency ?? null,
+      marketCap: c.market_cap ?? null,
+      volume: c.total_volume ?? null,
+      rank: c.market_cap_rank ?? null,
+      spark: Array.isArray(spark) && spark.length > 1 ? spark : null,
+      sparkImg: null,
+      source: c._source === 'coincodex' ? 'coincodex' : 'coingecko',
+    };
+  }
+
+  /* /search/trending's "item" shape is nothing like /coins/markets (string
+     market_cap/total_volume, a currency-keyed pct map — see contract §1),
+     so it gets its own mapper rather than forcing it through norm(). When
+     the coin is already in state.markets we prefer that richer, numeric
+     entry and just borrow the trending sparkline image onto it. */
+  function normTrending(item) {
+    const local = state.markets.find(m => m.id === item.id);
+    if (local) {
+      const n = norm(local);
+      n.sparkImg = item.data && item.data.sparkline || null;
+      return n;
+    }
+    const pct = item.data && item.data.price_change_percentage_24h;
+    return {
+      id: item.id,
+      symbol: (item.symbol || '').toLowerCase(),
+      name: item.name,
+      image: item.large || item.small || item.thumb || BLANK_IMG,
+      price: (item.data && item.data.price) ?? null,
+      pct24h: pct && typeof pct.usd === 'number' ? pct.usd : null,
+      marketCap: null, // preformatted string on this endpoint, not a usable number — leave unknown rather than mis-parse
+      volume: null,    // same
+      rank: item.market_cap_rank ?? null,
+      spark: null,
+      sparkImg: (item.data && item.data.sparkline) || null,
+      source: 'coingecko',
+    };
+  }
+
+  /* ---- local (0-call) lists ---- */
+
+  function localTop50() {
+    return state.markets
+      .filter(c => c.market_cap_rank != null && c.market_cap_rank <= 50)
+      .sort((a, b) => a.market_cap_rank - b.market_cap_rank)
+      .slice(0, 50) // CoinGecko occasionally hands back two coins on the same rank, which would make "Top 50" list 51
+      .map(norm);
+  }
+
+  /* Junk filter matters here: a near-zero-volume micro-cap can show a
+     bogus +900%/-90% swing on a single trade and would otherwise bury the
+     coins someone actually wants when sorting the raw list by pct24h. */
+  function localMovers(dir) {
+    return state.markets
+      .filter(c => (c.market_cap || 0) > 0
+        && (c.total_volume || 0) >= MIN_VOLUME
+        && c.price_change_percentage_24h_in_currency != null)
+      .sort((a, b) => dir * ((b.price_change_percentage_24h_in_currency ?? 0)
+        - (a.price_change_percentage_24h_in_currency ?? 0)))
+      .slice(0, 50)
+      .map(norm);
+  }
+
+  /* ---- network lists ---- */
+
+  async function fetchTrending() {
+    const fresh = API.readTimed(CACHE_TRENDING, TRENDING_TTL);
+    if (fresh) return fresh;
+    // Queued like every other call: this fires on modal open, which is
+    // exactly when the Market tab's own refresh may already be in flight.
+    const data = await API.enqueue(() => API.getJSON(TRENDING_URL));
+    const coins = (data.coins || []).map(x => normTrending(x.item));
+    API.writeCache(CACHE_TRENDING, coins);
+    return coins;
+  }
+
+  async function fetchCategory(catId) {
+    const key = 'cryptofolio.cache.accat.' + catId;
+    const fresh = API.readTimed(key, CATEGORY_TTL);
+    if (fresh) return fresh;
+    const url = BASE + '/coins/markets?vs_currency=usd&category=' + encodeURIComponent(catId)
+      + '&order=market_cap_desc&per_page=50&page=1&sparkline=true&price_change_percentage=24h';
+    const data = await API.enqueue(() => API.getJSON(url));
+    const coins = (data || []).map(norm);
+    API.writeCache(key, coins);
+    return coins;
+  }
+
+  /* Shared shape for every network-backed list: serve fresh/cached data
+     silently, and on failure fall back to whatever's in localStorage
+     (even if stale) rather than leaving the group empty. Callers never see
+     a throw — list() is called straight from click handlers. */
+  async function loadNetworkList(catId, fetcher, cacheKey) {
+    try {
+      const coins = await fetcher();
+      return { coins, error: null };
+    } catch (e) {
+      const stale = API.readCache(cacheKey);
+      return {
+        coins: stale ? stale.data : [],
+        error: "Couldn't load — try again.",
+      };
+    }
+  }
+
+  async function list(catId) {
+    try {
+      if (catId === 'top50') return { coins: localTop50(), error: null };
+      if (catId === 'gainers') return { coins: localMovers(1), error: null };
+      if (catId === 'losers') return { coins: localMovers(-1), error: null };
+      if (catId === 'trending') {
+        return await loadNetworkList(catId, fetchTrending, CACHE_TRENDING);
+      }
+      // anything else is treated as a category slug
+      return await loadNetworkList(catId, () => fetchCategory(catId), 'cryptofolio.cache.accat.' + catId);
+    } catch (e) {
+      // Belt-and-braces: list() is a public entry point called directly
+      // from UI handlers and must never throw, even if a future edit above
+      // misses a case.
+      return { coins: [], error: "Couldn't load — try again." };
+    }
+  }
+
+  /* ---- per-coin description (hover panel) ---- */
+
+  function stripDescription(html) {
+    const text = String(html || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    if (text.length <= 320) return text;
+    const cut = text.slice(0, 320);
+    const lastSpace = cut.lastIndexOf(' ');
+    return (lastSpace > 0 ? cut.slice(0, lastSpace) : cut).trim() + '…';
+  }
+
+  async function info(coinId) {
+    if (!coinId || coinId.startsWith('cc:')) return null; // CoinCodex tail has no /coins/{id} metadata — see contract §1
+    const key = 'cryptofolio.cache.acinfo.' + coinId;
+    const fresh = API.readTimed(key, INFO_TTL);
+    if (fresh) return { description: fresh };
+    try {
+      const data = await API.enqueue(() => API.getJSON(BASE + '/coins/' + encodeURIComponent(coinId)
+        + '?localization=false&tickers=false&market_data=false'
+        + '&community_data=false&developer_data=false&sparkline=false'));
+      const desc = stripDescription(data && data.description && data.description.en);
+      API.writeCache(key, desc);
+      return { description: desc || null };
+    } catch (e) {
+      const stale = API.readCache(key);
+      return { description: stale ? stale.data : null };
+    }
+  }
+
+  /* ---- sparkline for the hover panel ---- */
+
+  async function spark(ncoin) {
+    if (!ncoin) return { points: null, img: null };
+    if (Array.isArray(ncoin.spark) && ncoin.spark.length > 1) {
+      return { points: ncoin.spark, img: null };
+    }
+    if (ncoin.sparkImg) return { points: null, img: ncoin.sparkImg };
+    if (ncoin.source !== 'coingecko') return { points: null, img: null }; // cc: coins have no chart history
+    try {
+      const rows = await API.fetchMarketChart(ncoin.id, 7);
+      const points = Array.isArray(rows) ? rows.map(r => r[1]) : null;
+      return { points: points && points.length > 1 ? points : null, img: null };
+    } catch (e) {
+      return { points: null, img: null };
+    }
+  }
+
+  /* ---- search (synchronous, local only) ---- */
+
+  function search(query) {
+    const q = String(query || '').trim().toLowerCase();
+    if (!q) return [];
+    const out = [];
+    for (const c of state.markets) {
+      if (out.length >= SEARCH_CAP) break;
+      const name = (c.name || '').toLowerCase();
+      const sym = (c.symbol || '').toLowerCase();
+      if (name.includes(q) || sym.includes(q)) out.push(norm(c));
+    }
+    return out;
+  }
+
+  return { CATEGORIES, list, info, spark, search, norm };
+})();
+</script>
+
+<script>
+/* ==================== addcoins.js ====================
+   The "Add coins" modal: a categorized, multi-select coin picker with a live
+   hover-info side panel and one inline transaction card per selected coin.
+   All data comes from ACData; this module never fetches anything itself, so
+   the shared 400 ms serial queue stays the only path to CoinGecko. */
+const AddCoins = (() => {
+  const HOVER_MS = 140;   // long enough that dragging the cursor down the list costs one description fetch, not thirty
+  const SEARCH_MS = 120;
+  const SKELETONS = 5;
+
+  let selection = new Map();  // coinId -> { coin: NCoin, tx: {...} }; insertion order IS the card order
+  let groups = [];            // [{ id, label, coins, state:'loading'|'ready'|'error', error }] — array order is render order
+  let requested = new Set();  // category ids already asked for; a category is never fetched twice in a session
+  let searchGroup = null;     // non-null while the search box has text: the stack is replaced, not discarded
+  let infoCoinId = null;
+  let infoReq = 0;            // monotonic token, same guard as portfolio.js pastPriceReq
+  let hoverTimer = null;
+  let searchTimer = null;
+
+  function $(id) { return document.getElementById(id); }
+  function modalEl() { return $('ac-modal'); }
+  function isOpen() { const m = modalEl(); return !!m && m.classList.contains('open'); }
+
+  function smooth() {
+    return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+  }
+
+  /* .hidden is `display:none !important`, so it always wins when hiding. Showing
+     needs an inline display as well, because the element's own base rule may
+     also hide it (.ac-tx-dir is specified as hidden by default). */
+  function toggle(el, show) {
+    if (!el) return;
+    el.classList.toggle('hidden', !show);
+    el.style.display = show ? 'flex' : '';
+  }
+
+  // datetime-local is local wall-clock; a raw toISOString() would be UTC and show the wrong time
+  function nowLocal() {
+    const d = new Date();
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return d.toISOString().slice(0, 16);
+  }
+
+  function catById(id) {
+    return (ACData.CATEGORIES || []).find(c => c.id === id) || null;
+  }
+
+  /* ----- open / close ----- */
+
+  /* Own open/close, like TxSets: the shared closeModals lives inside the
+     Portfolio closure. Its close paths (the .modal-close button, the backdrop
+     and Escape) already strip .open from every modal, so they close this one —
+     but they leave our state untouched, which is why open() rebuilds it all. */
+  function open() {
+    const m = modalEl();
+    if (!m) return;
+
+    selection = new Map();
+    groups = [];
+    requested = new Set();
+    searchGroup = null;
+    infoCoinId = null;
+    infoReq++;
+    clearTimeout(hoverTimer);
+    clearTimeout(searchTimer);
+
+    $('ac-search').value = '';
+    $('ac-error').classList.add('hidden');
+    $('ac-tx-list').innerHTML = '';
+    $('ac-txwrap').classList.add('hidden');
+    $('ac-info').innerHTML = '<p class="ac-info-empty">Hover a coin to see its stats.</p>';
+    renderCats('trending');
+    syncFooter();
+
+    // The three local groups cost 0 API calls, so they can be built up front.
+    // Trending's slot is reserved now and filled when its one request lands —
+    // reserving avoids the list jumping under a cursor that is already reading it.
+    groups = [
+      { id: 'trending', label: 'Trending', coins: [], state: 'loading', error: null },
+      { id: 'top50', label: 'Top 50', coins: [], state: 'loading', error: null },
+      { id: 'gainers', label: 'Top Gainers', coins: [], state: 'loading', error: null },
+      { id: 'losers', label: 'Top Losers', coins: [], state: 'loading', error: null },
+    ];
+    renderList();
+    groups.forEach(g => { requested.add(g.id); fillGroup(g.id); });
+
+    document.querySelectorAll('.modal.open').forEach(x => x.classList.remove('open'));
+    m.classList.add('open');
+    $('modal-backdrop').classList.add('open');
+    $('ac-list').scrollTop = 0;
+  }
+
+  function close() {
+    clearTimeout(hoverTimer);
+    clearTimeout(searchTimer);
+    infoReq++;
+    const m = modalEl();
+    if (m) m.classList.remove('open');
+    $('modal-backdrop').classList.remove('open');
+  }
+
+  /* ----- category pills ----- */
+
+  function renderCats(activeId) {
+    $('ac-cats').innerHTML = (ACData.CATEGORIES || []).map(c =>
+      '<button type="button" class="ac-cat' + (c.id === activeId ? ' active' : '') + '"'
+      + ' role="tab" aria-selected="' + (c.id === activeId ? 'true' : 'false') + '"'
+      + ' data-cat="' + esc(c.id) + '">' + esc(c.icon) + ' ' + esc(c.label) + '</button>'
+    ).join('');
+  }
+
+  function setActiveCat(id) {
+    document.querySelectorAll('#ac-cats .ac-cat').forEach(b => {
+      const on = b.dataset.cat === id;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+  }
+
+  function scrollToGroup(id) {
+    const list = $('ac-list');
+    const el = list.querySelector('.ac-group[data-group="' + CSS.escape(id) + '"]');
+    if (!el) return;
+    const top = list.scrollTop + (el.getBoundingClientRect().top - list.getBoundingClientRect().top);
+    list.scrollTo({ top, behavior: smooth() });
+  }
+
+  /* A pill click is the ONLY thing that may fetch a category, and only the
+     first time — after that the group is already in `groups` and we just move
+     the viewport to it. Nothing here is ever prefetched. */
+  function onCatClick(id) {
+    setActiveCat(id);
+    if (searchGroup) { searchGroup = null; $('ac-search').value = ''; renderList(); }
+    if (groups.some(g => g.id === id)) return scrollToGroup(id);
+    if (requested.has(id)) return;
+    const cat = catById(id);
+    if (!cat) return;
+    requested.add(id);
+    groups.unshift({ id, label: cat.label, coins: [], state: 'loading', error: null });
+    renderList();
+    scrollToGroup(id);
+    fillGroup(id);
+  }
+
+  async function fillGroup(id) {
+    const res = await ACData.list(id);
+    const g = groups.find(x => x.id === id);
+    if (!g) return; // the modal was reopened while this was in flight
+    g.coins = (res && res.coins) || [];
+    g.error = (res && res.error) || null;
+    g.state = g.error ? 'error' : 'ready';
+    if (!searchGroup) renderList();
+  }
+
+  /* ----- list rendering ----- */
+
+  function rowHTML(c) {
+    const on = selection.has(c.id);
+    return '<div class="ac-row' + (on ? ' selected' : '') + '" data-id="' + esc(c.id) + '"'
+      + ' role="option" tabindex="-1" aria-selected="' + (on ? 'true' : 'false') + '">'
+      + '<img class="ac-row-img" src="' + esc(c.image || BLANK_IMG) + '" alt="" loading="lazy">'
+      + '<span class="ac-row-name">' + esc(c.name) + '</span>'
+      + '<span class="ac-row-sym">' + esc(String(c.symbol || '').toUpperCase()) + '</span>'
+      + '<span class="ac-check" aria-hidden="true"></span>'
+      + '</div>';
+  }
+
+  function groupHTML(g) {
+    let body = '';
+    if (g.state === 'loading') {
+      body = new Array(SKELETONS).fill('<div class="ac-skeleton" aria-hidden="true"></div>').join('');
+    } else {
+      if (g.error) {
+        body += '<div class="ac-group-error">' + esc(g.error)
+          + ' <button type="button" class="tx-usemkt" data-retry="' + esc(g.id) + '">Retry</button></div>';
+      }
+      // an errored group can still carry stale cached coins — show them under the notice
+      if (g.coins.length) body += g.coins.map(rowHTML).join('');
+      else if (!g.error) body += '<div class="ac-empty">' + esc(g.empty || 'Nothing to show yet.') + '</div>';
+    }
+    return '<div class="ac-group" data-group="' + esc(g.id) + '" role="group" aria-label="' + esc(g.label) + '">'
+      + '<div class="ac-group-label">' + esc(g.label) + '</div>' + body + '</div>';
+  }
+
+  function renderList() {
+    const stack = searchGroup ? [searchGroup] : groups;
+    $('ac-list').innerHTML = stack.map(groupHTML).join('');
+  }
+
+  /* ----- selection ----- */
+
+  function newTx() {
+    return { type: 'buy', quantity: '', price: '', fees: '', date: nowLocal(), notes: '', direction: 'in' };
+  }
+
+  function syncFooter() {
+    const n = selection.size;
+    $('ac-count').textContent = n === 1 ? '1 coin selected' : n + ' coins selected';
+    $('ac-submit').disabled = n === 0;
+    $('ac-txwrap').classList.toggle('hidden', n === 0);
+  }
+
+  // The same coin can be rendered in several groups at once; mark every copy.
+  function paintRow(id, on) {
+    document.querySelectorAll('#ac-list .ac-row[data-id="' + CSS.escape(id) + '"]').forEach(r => {
+      r.classList.toggle('selected', on);
+      r.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+  }
+
+  function toggleCoin(coin) {
+    if (selection.has(coin.id)) {
+      selection.delete(coin.id);
+      paintRow(coin.id, false);
+      const card = $('ac-tx-list').querySelector('.ac-tx[data-id="' + CSS.escape(coin.id) + '"]');
+      if (card) card.remove(); // surgical: rebuilding would blow focus in the other cards
+    } else {
+      selection.set(coin.id, { coin, tx: newTx() });
+      paintRow(coin.id, true);
+      $('ac-tx-list').insertAdjacentHTML('beforeend', cardHTML(coin));
+    }
+    $('ac-error').classList.add('hidden');
+    syncFooter();
+  }
+
+  function coinFromRow(row) {
+    const id = row.dataset.id;
+    const sel = selection.get(id);
+    if (sel) return sel.coin;
+    const stack = searchGroup ? [searchGroup] : groups;
+    for (const g of stack) {
+      const c = g.coins.find(x => x.id === id);
+      if (c) return c;
+    }
+    return null;
+  }
+
+  /* ----- hover info panel ----- */
+
+  function statRow(k, v, cls) {
+    return '<div class="ac-stat"><dt class="ac-stat-k">' + esc(k) + '</dt>'
+      + '<dd class="ac-stat-v' + (cls ? ' ' + cls : '') + '">' + v + '</dd></div>';
+  }
+
+  function pctCell(n) {
+    if (n == null || isNaN(n)) return { html: '—', cls: '' };
+    const up = n >= 0;
+    return { html: (up ? '▲ ' : '▼ ') + esc(fmtPct(n)), cls: up ? 'ac-up' : 'ac-down' };
+  }
+
+  function sparkSVG(points) {
+    let min = Infinity, max = -Infinity;
+    for (const v of points) { if (v < min) min = v; if (v > max) max = v; }
+    const range = (max - min) || Math.abs(min) * 0.001 || 1;
+    const H = 32, pad = 2, span = H - pad * 2;
+    const last = points.length - 1;
+    const pts = points.map((v, i) =>
+      (last ? (i / last) * 100 : 0).toFixed(2) + ',' + (pad + span * (1 - (v - min) / range)).toFixed(2)
+    ).join(' ');
+    const up = points[last] >= points[0];
+    return '<svg viewBox="0 0 100 32" width="100%" height="100%" preserveAspectRatio="none"'
+      + ' role="img" aria-label="Last 7 days price chart">'
+      // Colour rides on a class, not a stroke="" attribute: var() is only
+      // substituted inside CSS declarations, so stroke="var(--green)" on an
+      // SVG presentational attribute is simply discarded by the parser.
+      + '<polyline class="' + (up ? 'ac-up' : 'ac-down') + '" points="' + pts + '"/></svg>';
+  }
+
+  function renderInfo(coin) {
+    if (coin.id === infoCoinId) return; // re-entering the same row must not re-request its description
+    infoCoinId = coin.id;
+    const token = ++infoReq;
+    const pct = pctCell(coin.pct24h);
+    const sym = esc(String(coin.symbol || '').toUpperCase());
+
+    // Stats are already in the NCoin — render them with zero requests, then
+    // let the chart and the blurb arrive whenever they arrive.
+    $('ac-info').innerHTML =
+      '<div class="ac-info-head">' + sym + ' Stats</div>'
+      + '<dl class="ac-stats">'
+      + statRow('Rank', coin.rank != null ? '#' + esc(coin.rank) : '—')
+      + statRow('Price', esc(fmtUSD(coin.price)))
+      + statRow('24h %', pct.html, pct.cls)
+      + statRow('Market Cap', esc(fmtCompact(coin.marketCap)))
+      + statRow('24h Trading Volume', esc(fmtCompact(coin.volume)))
+      + '</dl>'
+      + '<div class="ac-spark-label">Last 7 Days</div>'
+      + '<div class="ac-spark" data-spark>Loading…</div>'
+      + '<div class="ac-about"><h5>What is ' + esc(coin.name) + '?</h5><p data-about>Loading…</p></div>';
+
+    ACData.spark(coin).then(r => {
+      if (token !== infoReq) return; // a newer hover already owns the panel
+      const box = $('ac-info').querySelector('[data-spark]');
+      if (!box) return;
+      if (r && r.points && r.points.length > 1) box.innerHTML = sparkSVG(r.points);
+      else if (r && r.img) box.innerHTML = '<img src="' + esc(r.img) + '" alt="Last 7 days price chart">';
+      else box.textContent = 'No chart data';
+    });
+
+    ACData.info(coin.id).then(r => {
+      if (token !== infoReq) return;
+      const p = $('ac-info').querySelector('[data-about]');
+      if (!p) return;
+      p.textContent = (r && r.description) || 'No description available.';
+    });
+  }
+
+  function scheduleInfo(row) {
+    clearTimeout(hoverTimer);
+    hoverTimer = setTimeout(() => {
+      if (!isOpen() || !row.isConnected) return;
+      const c = coinFromRow(row);
+      if (c) renderInfo(c);
+    }, HOVER_MS);
+  }
+
+  /* ----- search ----- */
+
+  /* ACData.search is synchronous over state.markets, so typing here can never
+     hit the network. Clearing the box just re-renders the groups we already hold. */
+  function runSearch() {
+    const q = $('ac-search').value.trim();
+    if (!q) { searchGroup = null; renderList(); return; }
+    const coins = ACData.search(q);
+    searchGroup = {
+      id: 'search', label: 'Search results', coins, state: 'ready', error: null,
+      empty: 'No coins match "' + q + '"',
+    };
+    renderList();
+    $('ac-list').scrollTop = 0;
+  }
+
+  /* ----- transaction cards ----- */
+
+  function field(name, type, placeholder, extra) {
+    return '<input class="ac-tx-input" data-f="' + name + '" type="' + type + '"'
+      + (type === 'number' ? ' min="0" step="any"' : '')
+      + (placeholder ? ' placeholder="' + esc(placeholder) + '" aria-label="' + esc(placeholder) + '"' : '')
+      + (extra || '') + '>';
+  }
+
+  function cardHTML(c) {
+    const id = esc(c.id);
+    const sym = esc(String(c.symbol || '').toUpperCase());
+    const noPrice = c.price == null;
+    return '<div class="ac-tx" data-id="' + id + '">'
+      + '<div class="ac-tx-head">'
+      +   '<img class="ac-row-img" src="' + esc(c.image || BLANK_IMG) + '" alt="" loading="lazy">'
+      +   '<span class="ac-row-name">' + esc(c.name) + '</span>'
+      +   '<span class="ac-row-sym">' + sym + '</span>'
+      +   '<div class="ac-tx-tabs">'
+      +     '<button type="button" class="ac-tx-tab active" data-txtype="buy">Buy</button>'
+      +     '<button type="button" class="ac-tx-tab" data-txtype="sell">Sell</button>'
+      +     '<button type="button" class="ac-tx-tab" data-txtype="transfer">Transfer</button>'
+      +   '</div>'
+      +   '<button type="button" class="ac-tx-del" data-del aria-label="Remove ' + esc(c.name) + '">×</button>'
+      + '</div>'
+      + '<div class="ac-tx-dir hidden">'
+      +   '<label><input type="radio" name="ac-dir-' + id + '" value="in" checked> Transfer in</label>'
+      +   '<label><input type="radio" name="ac-dir-' + id + '" value="out"> Transfer out</label>'
+      + '</div>'
+      + '<div class="ac-tx-grid">'
+      +   field('quantity', 'number', 'Quantity')
+      +   '<div class="tx-field-row" data-row="price">'
+      +     field('price', 'number', 'Price per coin (USD)')
+      +     '<button type="button" class="tx-usemkt" data-usemkt' + (noPrice ? ' disabled' : '') + '>Use Market</button>'
+      +   '</div>'
+      +   field('date', 'datetime-local', '', ' aria-label="Date and time" value="' + nowLocal() + '"')
+      +   '<div class="tx-field-row" data-row="fees">' + field('fees', 'number', 'Fees (USD, optional)') + '</div>'
+      +   field('notes', 'text', 'Notes (optional)', ' maxlength="140"')
+      + '</div>'
+      + '<p class="ac-tx-err hidden"></p>'
+      + '</div>';
+  }
+
+  // Same visibility rule as portfolio.js setTxType: a transfer has no price and no fees.
+  function setCardType(card, type) {
+    const entry = selection.get(card.dataset.id);
+    if (entry) entry.tx.type = type;
+    card.querySelectorAll('.ac-tx-tab').forEach(b => b.classList.toggle('active', b.dataset.txtype === type));
+    const xfer = type === 'transfer';
+    toggle(card.querySelector('[data-row="price"]'), !xfer);
+    toggle(card.querySelector('[data-row="fees"]'), !xfer);
+    toggle(card.querySelector('.ac-tx-dir'), xfer);
+  }
+
+  function cardError(card, msg) {
+    const p = card.querySelector('.ac-tx-err');
+    if (!p) return;
+    p.textContent = msg || '';
+    p.classList.toggle('hidden', !msg);
+  }
+
+  /* ----- submit ----- */
+
+  function onSubmit() {
+    const err = $('ac-error');
+    err.classList.add('hidden');
+    const list = $('ac-tx-list');
+    const entries = [];
+    let firstBad = null;
+
+    for (const [coinId, { tx }] of selection) {
+      const card = list.querySelector('.ac-tx[data-id="' + CSS.escape(coinId) + '"]');
+      cardError(card, '');
+      const quantity = parseFloat(tx.quantity);
+      const xfer = tx.type === 'transfer';
+      const pricePerCoin = xfer ? 0 : parseFloat(tx.price);
+      const fees = xfer ? 0 : (parseFloat(tx.fees) || 0);
+
+      if (!(quantity > 0)) { cardError(card, 'Quantity must be greater than 0.'); firstBad = firstBad || card; continue; }
+      if (!xfer && !(pricePerCoin >= 0)) { cardError(card, 'Price must be 0 or more.'); firstBad = firstBad || card; continue; }
+
+      const entry = {
+        coinId,
+        type: tx.type,
+        quantity,
+        pricePerCoin,
+        fees,
+        date: tx.date ? new Date(tx.date).getTime() : Date.now(),
+        notes: String(tx.notes || '').trim(),
+      };
+      if (xfer) entry.direction = tx.direction || 'in';
+      entries.push(entry);
+    }
+
+    if (firstBad) {
+      err.textContent = 'Fix the highlighted transactions.';
+      err.classList.remove('hidden');
+      firstBad.scrollIntoView({ block: 'nearest', behavior: smooth() });
+      return;
+    }
+    if (!entries.length) return;
+
+    const res = Portfolio.addTransactions(entries);
+    if (res && res.ok === false) {
+      for (const e of (res.errors || [])) {
+        const card = list.querySelector('.ac-tx[data-id="' + CSS.escape(e.coinId) + '"]');
+        if (card) { cardError(card, e.msg); firstBad = firstBad || card; }
+      }
+      err.textContent = 'Some transactions couldn’t be added.';
+      err.classList.remove('hidden');
+      if (firstBad) firstBad.scrollIntoView({ block: 'nearest', behavior: smooth() });
+      return;
+    }
+    close(); // addTransactions re-renders the portfolio itself
+  }
+
+  /* ----- wiring ----- */
+
+  function init() {
+    const m = modalEl();
+    if (!m) return;
+
+    m.querySelectorAll('[data-ac-close]').forEach(b => b.addEventListener('click', close));
+
+    $('ac-cats').addEventListener('click', e => {
+      const b = e.target.closest('.ac-cat[data-cat]');
+      if (b) onCatClick(b.dataset.cat);
+    });
+
+    $('ac-search').addEventListener('input', () => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(runSearch, SEARCH_MS);
+    });
+
+    const list = $('ac-list');
+    list.addEventListener('click', e => {
+      const retry = e.target.closest('[data-retry]');
+      if (retry) {
+        const g = groups.find(x => x.id === retry.dataset.retry);
+        if (g) { g.state = 'loading'; g.error = null; renderList(); fillGroup(g.id); }
+        return;
+      }
+      const row = e.target.closest('.ac-row[data-id]');
+      if (!row) return;
+      const c = coinFromRow(row);
+      if (c) toggleCoin(c);
+    });
+
+    // mouseenter doesn't bubble, so hover is delegated through mouseover
+    list.addEventListener('mouseover', e => {
+      const row = e.target.closest('.ac-row[data-id]');
+      if (row) scheduleInfo(row);
+    });
+    list.addEventListener('focusin', e => {
+      const row = e.target.closest('.ac-row[data-id]');
+      if (row) scheduleInfo(row);
+    });
+
+    list.addEventListener('keydown', e => {
+      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Enter' && e.key !== ' ') return;
+      const rows = [...list.querySelectorAll('.ac-row[data-id]')];
+      if (!rows.length) return;
+      const cur = document.activeElement && document.activeElement.closest('.ac-row[data-id]');
+      if (e.key === 'Enter' || e.key === ' ') {
+        if (!cur) return;
+        e.preventDefault();
+        const c = coinFromRow(cur);
+        if (c) toggleCoin(c);
+        return;
+      }
+      e.preventDefault();
+      const i = cur ? rows.indexOf(cur) : -1;
+      const next = rows[Math.max(0, Math.min(rows.length - 1, i + (e.key === 'ArrowDown' ? 1 : -1)))];
+      if (next) next.focus();
+    });
+
+    const tx = $('ac-tx-list');
+    /* Typing only writes into the Map — nothing re-renders, so the caret and
+       the focused field survive every keystroke. */
+    tx.addEventListener('input', e => {
+      const input = e.target.closest('[data-f]');
+      if (!input) return;
+      const card = input.closest('.ac-tx[data-id]');
+      const entry = card && selection.get(card.dataset.id);
+      if (!entry) return;
+      entry.tx[input.dataset.f] = input.value;
+      cardError(card, '');
+    });
+    tx.addEventListener('change', e => {
+      const radio = e.target.closest('input[type="radio"]');
+      if (!radio) return;
+      const card = radio.closest('.ac-tx[data-id]');
+      const entry = card && selection.get(card.dataset.id);
+      if (entry) entry.tx.direction = radio.value;
+    });
+    tx.addEventListener('click', e => {
+      const card = e.target.closest('.ac-tx[data-id]');
+      if (!card) return;
+      const entry = selection.get(card.dataset.id);
+      const tab = e.target.closest('.ac-tx-tab');
+      if (tab) return setCardType(card, tab.dataset.txtype);
+      if (e.target.closest('[data-del]')) {
+        if (entry) toggleCoin(entry.coin);
+        return;
+      }
+      if (e.target.closest('[data-usemkt]')) {
+        if (!entry || entry.coin.price == null) return;
+        const input = card.querySelector('[data-f="price"]');
+        input.value = entry.coin.price;
+        entry.tx.price = input.value;
+        cardError(card, '');
+      }
+    });
+
+    $('ac-submit').addEventListener('click', onSubmit);
+  }
+
+  return { init, open };
+})();
+
+/* ## Contract concerns
+   1. §5 says "prepend the Trending group when it resolves". This module instead
+      reserves Trending's slot at index 0 immediately in the `loading` state and
+      fills it in place. Same final order, same single request, but the list
+      does not shift under a cursor that is already reading Top 50. If a literal
+      late prepend is wanted, drop the trending entry from the initial `groups`
+      array and unshift it inside fillGroup.
+   2. §6 has no class for the sparkline `<svg>` or `<img>` itself, so they are
+      emitted bare inside `.ac-spark`. The svg carries width="100%" height="100%"
+      attributes to avoid the 300x150 default; Role B should still size
+      `.ac-spark` and `.ac-spark img`.
+   3. §6 says `.ac-tx-dir` is "hidden by default". This module drives it with the
+      global `.hidden` class plus an inline `display:flex` when showing, so it
+      works whether or not Role B also writes a `display:none` base rule — but
+      that base rule must NOT be `!important`.
+   4. `.ac-tx-input` is emitted on the card inputs purely as a styling hook; it is
+      not in §6, so plain `#page-app .ac-tx-grid input` styling is fine and the
+      class can be ignored.
+   5. The skeleton's `#ac-submit` is a bare `<button>`, not inside a form, so it
+      is wired on `click`. If the integrator ever wraps the tx section in a
+      `<form>`, switch to a `submit` handler with `preventDefault()`.
+   6. `Portfolio.addTransactions` is called synchronously and its result read
+      synchronously. If the integrator makes it async, `onSubmit` needs an
+      `await` on that one line. */
 </script>
 
 <script>
@@ -6113,6 +7512,7 @@ document.addEventListener('DOMContentLoaded', () => {
   Translate.init();
   Backup.init();
   TxSets.init();
+  AddCoins.init();
 
   document.querySelectorAll('.tab').forEach(t =>
     t.addEventListener('click', () => switchView(t.dataset.view)));
