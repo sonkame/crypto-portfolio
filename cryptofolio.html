@@ -422,6 +422,7 @@ html:not(.view-home) #page-home { display: none; }
 }
 #page-app .menu button:hover { background: var(--bg-2); }
 #page-app .menu button.danger { color: var(--red); }
+#page-app .menu button.active { color: var(--accent); font-weight: 700; }
 #page-app #row-menu { position: fixed; top: 0; left: 0; right: auto; width: max-content; }
 #page-app #gallery-menu { position: fixed; top: 0; left: 0; right: auto; width: max-content; }
 #page-app .pf-summary {
@@ -687,6 +688,43 @@ html:not(.view-home) #page-home { display: none; }
 #page-app .rm-row:last-child { border-bottom: none; }
 #page-app .rm-row img { border-radius: 50%; }
 #page-app .rm-row .btn { margin-left: auto; }
+
+#page-app .cvs-files { display: flex; flex-direction: column; gap: 18px; padding: 18px 2px; }
+#page-app .cvs-files-group-label { font-size: 12px; font-weight: 700; letter-spacing: .04em; color: var(--muted); text-transform: uppercase; margin-bottom: 8px; }
+#page-app .cvs-file-row { display: flex; align-items: center; gap: 10px; padding: 9px 2px; border-bottom: 1px solid var(--border); }
+#page-app .cvs-file-row:last-child { border-bottom: none; }
+#page-app .cvs-file-icon { flex-shrink: 0; opacity: .8; }
+#page-app .cvs-file-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#page-app .cvs-file-size { color: var(--muted); font-size: 12.5px; margin-left: auto; flex-shrink: 0; }
+#page-app .cvs-file-remove { background: none; border: none; color: var(--muted); font-size: 16px; line-height: 1; cursor: pointer; padding: 4px; flex-shrink: 0; }
+#page-app .cvs-file-remove:hover { color: var(--red); }
+#page-app .cvs-file-result { font-size: 12px; flex-shrink: 0; }
+
+/* Filtered ver. filter bar: Monthly/Yearly are button+.menu dropdowns (same
+   widget as cvs-add-btn above), Crypto/Network/Request Amount/Deposit are
+   independent multi-select toggles - a pill shape (not .segmented's joined
+   bar) since, unlike a timeframe picker, more than one can be active at once. */
+#page-app .tx-filterbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 16px; }
+#page-app .tx-filter-val { color: var(--accent); font-weight: 700; margin-left: 6px; }
+#page-app .tx-chip {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+#page-app .tx-chip:hover { border-color: var(--accent); color: var(--text); }
+#page-app .tx-chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+#page-app .tx-filter-clear { color: var(--muted); margin-left: auto; }
+
+/* Ledger tables: full precision amounts need digits to line up like a
+   ledger, which .data-table's default numeric styling doesn't guarantee. */
+#page-app .tx-ledger-table td.num, #page-app .tx-ledger-table th.num { font-variant-numeric: tabular-nums; }
+#page-app .tx-totals-row td { font-weight: 700; background: var(--bg-3); border-top: 2px solid var(--border); }
 #page-app .np-step { display: flex; flex-direction: column; gap: 14px; }
 #page-app .np-step h3 { margin-bottom: 2px; }
 #page-app .np-option {
@@ -2429,9 +2467,10 @@ if (VIEW === 'home') {
   <!-- CVS TRANSACTIONS VIEW -->
   <!-- Reuses the portfolio view's classes/styling, trimmed per spec: no
        Analytics sub-tab, no 24h-change or Top-Performer cards, CVS-file
-       actions instead of add/remove coin. Static shell for now - no JS module
-       bound yet, behaviour of the buttons is still to be specified. Own id
-       namespace (cvs-*) so nothing collides with the portfolio view. -->
+       actions instead of add/remove coin. TxSets (transactions.js) owns tab
+       management and file picking; turning a picked CSV into transaction
+       rows is still to be specified. Own id namespace (cvs-*) so nothing
+       collides with the portfolio view. -->
   <section id="view-transactions" class="view">
     <!-- transaction-set selector tabs -->
     <div class="pf-tabs-row">
@@ -2447,9 +2486,10 @@ if (VIEW === 'home') {
       </div>
       <div class="pf-head-right">
         <div class="pf-actions" id="cvs-actions">
-          <!-- Import-source picker. Placeholder entries: they open nothing and
-               carry no handler yet - the per-source CVS parsing is still to be
-               specified. -->
+          <!-- Import-source picker. Each entry opens the OS file browser
+               (filtered to .csv) via the hidden input below; parsing the
+               picked file into transaction rows is a separate, unspecified
+               step - for now it's just tracked and listed per source. -->
           <div class="menu-wrap">
             <button class="btn" id="cvs-add-btn" aria-haspopup="true" aria-expanded="false">＋ <span data-i18n="Add CVS file">Add CVS file</span></button>
             <div class="menu hidden" id="cvs-add-menu">
@@ -2458,6 +2498,12 @@ if (VIEW === 'home') {
               <button data-src="withdraw">＋ <span data-i18n="Withdraw History">Withdraw History</span></button>
               <button data-src="spot">＋ <span data-i18n="Trade Spot History">Trade Spot History</span></button>
             </div>
+            <!-- Picking a source above opens this at the OS file browser, filtered
+                 to CSV. Parsing the file into transactions is a separate step. -->
+            <!-- .xlsx as well as .csv: the exchanges these come from (MEXC and
+                 friends) export .xlsx by default, so a csv-only filter would
+                 grey out the very file the user is trying to import. -->
+            <input type="file" id="cvs-file-input" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" multiple hidden>
           </div>
           <button class="btn" id="cvs-remove-btn">− <span data-i18n="Remove CVS file">Remove CVS file</span></button>
           <div class="menu-wrap">
@@ -2483,14 +2529,62 @@ if (VIEW === 'home') {
       </div>
     </div>
 
-    <!-- sub tabs: single "Transactions" tab (Analytics removed) -->
-    <div class="pf-subtabs">
-      <button class="pf-subtab active" data-sub="transactions"><span data-i18n="Transactions">Transactions</span></button>
+    <!-- sub tabs -->
+    <div class="pf-subtabs" id="tx-subtabs">
+      <button class="pf-subtab active" data-sub="normal"><span data-i18n="Normal">Normal</span></button>
+      <button class="pf-subtab" data-sub="filtered">✦ <span data-i18n="Filtered ver.">Filtered ver.</span></button>
     </div>
 
-    <!-- TRANSACTIONS PANEL -->
-    <div class="pf-panel active" id="cvs-panel">
+    <!-- NORMAL PANEL: every imported row, all columns, newest first -->
+    <div class="pf-panel active" id="tx-panel-normal">
       <p id="cvs-empty" class="empty"><span data-i18n="No transactions yet — click “＋ Add CVS file” to import your crypto or stocks.">No transactions yet — click “＋ Add CVS file” to import your crypto or stocks.</span><br><small data-i18n="Your transactions are stored locally in this browser only.">Your transactions are stored locally in this browser only.</small></p>
+      <!-- Picked-file confirmation for this session, grouped by import
+           source, with the parse+ingest result per file. Not persisted:
+           File objects can't survive a reload, so this list resets on
+           refresh (same as it would need re-picking anyway) - the ledger
+           tables below are the persisted source of truth. -->
+      <div id="cvs-files" class="cvs-files hidden"></div>
+      <div class="table-wrap table-wrap--flush hidden" id="tx-normal-wrap">
+        <table class="data-table tx-ledger-table" id="tx-normal-table">
+          <thead>
+            <tr>
+              <th data-i18n="Time/date">Time/date</th>
+              <th data-i18n="Crypto">Crypto</th>
+              <th data-i18n="Network">Network</th>
+              <th class="num" data-i18n="Request Amount">Request Amount</th>
+              <th class="num" data-i18n="Deposit">Deposit</th>
+            </tr>
+          </thead>
+          <tbody id="tx-normal-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- FILTERED VER. PANEL -->
+    <div class="pf-panel" id="tx-panel-filtered">
+      <div class="tx-filterbar" id="tx-filterbar">
+        <div class="menu-wrap">
+          <button class="btn small" id="tx-month-btn" aria-haspopup="true" aria-expanded="false"><span data-i18n="Monthly">Monthly</span><span class="tx-filter-val" id="tx-month-val"></span></button>
+          <div class="menu hidden" id="tx-month-menu"></div>
+        </div>
+        <div class="menu-wrap">
+          <button class="btn small" id="tx-year-btn" aria-haspopup="true" aria-expanded="false"><span data-i18n="Yearly">Yearly</span><span class="tx-filter-val" id="tx-year-val"></span></button>
+          <div class="menu hidden" id="tx-year-menu"></div>
+        </div>
+        <button class="tx-chip" data-toggle="crypto"><span data-i18n="Crypto">Crypto</span></button>
+        <button class="tx-chip" data-toggle="network"><span data-i18n="Network">Network</span></button>
+        <button class="tx-chip" data-toggle="requestAmount"><span data-i18n="Request Amount">Request Amount</span></button>
+        <button class="tx-chip" data-toggle="deposit"><span data-i18n="Deposit">Deposit</span></button>
+        <button class="btn small tx-filter-clear" id="tx-filter-clear-btn"><span data-i18n="Clear">Clear</span></button>
+      </div>
+      <p class="empty hidden" id="tx-filtered-empty"><span data-i18n="No transactions match this filter.">No transactions match this filter.</span></p>
+      <div class="table-wrap table-wrap--flush hidden" id="tx-filtered-wrap">
+        <table class="data-table tx-ledger-table" id="tx-filtered-table">
+          <thead id="tx-filtered-head"></thead>
+          <tbody id="tx-filtered-body"></tbody>
+          <tfoot id="tx-filtered-foot"></tfoot>
+        </table>
+      </div>
     </div>
   </section>
 
@@ -4087,7 +4181,7 @@ const Portfolio = (() => {
   function switchSubTab(name) {
     txCoinId = null;
     subTab = name;
-    document.querySelectorAll('.pf-subtab').forEach(b =>
+    document.querySelectorAll('#view-portfolio .pf-subtab').forEach(b =>
       b.classList.toggle('active', b.dataset.sub === name));
     document.getElementById('pf-panel-coins').classList.toggle('active', name === 'coins');
     document.getElementById('pf-panel-analytics').classList.toggle('active', name === 'analytics');
@@ -4126,7 +4220,7 @@ const Portfolio = (() => {
     });
 
     // sub tabs
-    document.querySelectorAll('.pf-subtab').forEach(b =>
+    document.querySelectorAll('#view-portfolio .pf-subtab').forEach(b =>
       b.addEventListener('click', () => switchSubTab(b.dataset.sub)));
 
     // tx modal form + combo
@@ -6811,6 +6905,7 @@ const Backup = (() => {
     'cryptofolio.holdings.v1',   // pre-migration store; kept so an old backup still restores
     'cryptofolio.gallery.v1',    // saved sites incl. their compressed screenshots
     'cryptofolio.txsets.v1',     // CVS Transactions tab set (names/icons - not yet the import itself)
+    'cryptofolio.cvstx.v1',      // the CVS Transactions ledger itself (imported rows, per set)
     'cryptofolio.i18n.lang',     // chosen language
   ];
 
@@ -6975,20 +7070,43 @@ const Backup = (() => {
 
 <script>
 /* ==================== transactions.js ====================
-   Tab management for the CVS Transactions view. Mirrors the portfolio tab
-   system - a persisted list of named sets, one active, with New / Rename /
-   Delete - but in its own store and id namespace (cvs-* / txsets). What a
-   set actually HOLDS (the CVS import, the table, the summary numbers) is
-   still to be built; this only makes "New Transaction" behave like
+   Tab management for the CVS Transactions view, plus picking CSV files per
+   set/source. Mirrors the portfolio tab system - a persisted list of named
+   sets, one active, with New / Rename / Delete - but in its own store and
+   id namespace (cvs-* / txsets). Turning a picked file into transaction
+   rows (the table, the summary numbers) is still to be built; this only
+   makes "New Transaction" behave like
    "New Portfolio": create a tab, select it, rename/delete it. */
 const TxSets = (() => {
   const KEY = 'cryptofolio.txsets.v1';
   const ICONS = ['⭐', '🚀', '💎', '🐸', '🦄', '🔥', '🌙', '🐳'];
   const DEFAULT_ID = 'default'; // always-present set; can't be deleted, mirrors the portfolio default
+  const SOURCE_LABELS = { futures: 'Future Trade history', deposit: 'Deposit History', withdraw: 'Withdraw History', spot: 'Trade Spot History' };
 
   let store = load();   // { activeId, sets: [{ id, name, icon }] }
   let mode = 'create';  // 'create' | 'rename'
   let icon = ICONS[0];
+
+  /* Picked-file confirmation for THIS session only, per transaction set, per
+     import source - { name, size, result: {added,skipped,error} }. Not
+     persisted: a File object can't survive a reload, so this resets on
+     refresh. The rows themselves ARE persisted (TxStore), so a refresh just
+     means the ledger keeps showing everything while this confirmation list
+     goes back to empty - it's a "here's what just happened" strip, not the
+     source of truth. */
+  let filesBySet = {};
+  let pendingSource = null;
+
+  function filesFor(setId) {
+    if (!filesBySet[setId]) filesBySet[setId] = { futures: [], deposit: [], withdraw: [], spot: [] };
+    return filesBySet[setId];
+  }
+
+  function fmtBytes(n) {
+    if (n < 1024) return n + ' B';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+    return (n / (1024 * 1024)).toFixed(1) + ' MB';
+  }
 
   function load() {
     try {
@@ -7017,7 +7135,49 @@ const TxSets = (() => {
     if (del) del.classList.toggle('hidden', s.id === DEFAULT_ID);
   }
 
-  function render() { renderTabs(); renderHead(); }
+  function resultBadge(r) {
+    if (!r) return '';
+    if (r.error) return '<span class="cvs-file-result down" title="' + esc(r.error) + '">⚠ ' + esc(r.error) + '</span>';
+    let text = '+' + r.added + (r.added === 1 ? ' row' : ' rows');
+    if (r.skipped) text += ', ' + r.skipped + ' already imported';
+    return '<span class="cvs-file-result up">' + esc(text) + '</span>';
+  }
+
+  function renderFiles() {
+    const setId = active().id;
+    const files = filesFor(setId);
+    const groups = Object.keys(SOURCE_LABELS)
+      .map(src => ({ src, list: files[src] }))
+      .filter(g => g.list.length);
+
+    // The confirmation strip is session-only, but whether anything has EVER
+    // been imported for this set is a persisted fact - drive the empty state
+    // off TxStore so it stays correct across a reload, not off this session's
+    // (possibly empty) picks.
+    const hasData = typeof TxStore !== 'undefined' && TxStore.all(setId).length > 0;
+    document.getElementById('cvs-empty').classList.toggle('hidden', hasData);
+    const wrap = document.getElementById('cvs-files');
+    wrap.classList.toggle('hidden', groups.length === 0);
+    wrap.innerHTML = groups.map(g =>
+      '<div class="cvs-files-group">'
+      + '<div class="cvs-files-group-label">' + esc(SOURCE_LABELS[g.src]) + '</div>'
+      + g.list.map((f, i) =>
+        '<div class="cvs-file-row">'
+        + '<span class="cvs-file-icon">📄</span>'
+        + '<span class="cvs-file-name" title="' + esc(f.name) + '">' + esc(f.name) + '</span>'
+        + '<span class="cvs-file-size">' + esc(fmtBytes(f.size)) + '</span>'
+        + resultBadge(f.result)
+        + '<button type="button" class="cvs-file-remove" data-remove-src="' + esc(g.src) + '" data-remove-idx="' + i + '" aria-label="Remove ' + esc(f.name) + '">×</button>'
+        + '</div>'
+      ).join('')
+      + '</div>'
+    ).join('');
+  }
+
+  function render() {
+    renderTabs(); renderHead(); renderFiles();
+    if (typeof TxView !== 'undefined') TxView.render();
+  }
 
   /* Own open/close: the shared closeModals lives inside the Portfolio closure,
      but the shared modal-close button / backdrop / Escape wiring already
@@ -7069,18 +7229,52 @@ const TxSets = (() => {
     });
     document.getElementById('cvs-new-btn').addEventListener('click', () => showModal('create'));
 
-    /* Import-source dropdown. The entries are placeholders for now - opening
-       and closing the menu is all that is wired; picking a source does
-       nothing until the per-source CVS parsing is specified. */
+    /* Import-source dropdown. Picking a source opens the OS file browser via
+       the hidden <input type="file">, filtered to .csv - parsing the picked
+       file(s) into transactions is a separate step, not specified yet. */
     const addBtn = document.getElementById('cvs-add-btn');
     const addMenu = document.getElementById('cvs-add-menu');
+    const fileInput = document.getElementById('cvs-file-input');
     addBtn.addEventListener('click', e => {
       e.stopPropagation();
       const open = addMenu.classList.toggle('hidden') === false;
       addBtn.setAttribute('aria-expanded', String(open));
       document.getElementById('cvs-menu').classList.add('hidden'); // never both open at once
     });
-    addMenu.addEventListener('click', e => e.stopPropagation()); // picking a source shouldn't dismiss it yet
+    addMenu.addEventListener('click', e => {
+      const b = e.target.closest('button[data-src]');
+      if (!b) return;
+      pendingSource = b.dataset.src;
+      addMenu.classList.add('hidden');
+      addBtn.setAttribute('aria-expanded', 'false');
+      fileInput.click(); // native OS file browser, scoped to this machine's files
+    });
+    fileInput.addEventListener('change', async () => {
+      if (pendingSource && fileInput.files.length) {
+        const setId = active().id;
+        const source = pendingSource;
+        const picked = Array.from(fileInput.files);
+        // Each picked file is independent - parse+ingest one at a time so a
+        // bad file in a multi-select doesn't block the good ones, and each
+        // gets its own result badge.
+        for (const f of picked) {
+          const parsed = await TxParse.file(f);
+          const result = TxStore.ingest(parsed, source, f.name, setId);
+          filesFor(setId)[source].push({ name: f.name, size: f.size, result });
+        }
+        render(); // re-render as a whole: ledger + file strip + empty state all depend on the new data
+      }
+      pendingSource = null;
+      fileInput.value = ''; // otherwise re-picking the same file fires no 'change'
+    });
+    document.getElementById('cvs-files').addEventListener('click', e => {
+      const b = e.target.closest('[data-remove-src]');
+      if (!b) return;
+      const setId = active().id;
+      const [removed] = filesFor(setId)[b.dataset.removeSrc].splice(Number(b.dataset.removeIdx), 1);
+      if (removed) TxStore.remove(setId, removed.name); // undo the ingest, not just the confirmation-strip entry
+      render();
+    });
 
     document.getElementById('cvs-menu-btn').addEventListener('click', e => {
       e.stopPropagation();
@@ -7120,7 +7314,973 @@ const TxSets = (() => {
     render();
   }
 
-  return { init };
+  return { init, activeId: () => active().id };
+})();
+</script>
+
+<script>
+/* ==================== part-a-parse.js (TxParse) ====================
+   Parses a CSV or XLSX File into a plain {header, rows, sheet, error} table.
+   No third-party library: XLSX is a ZIP of XML, inflated with the native
+   DecompressionStream and walked with DOMParser. Never throws — every path
+   returns a result object; failures surface via the `error` string. */
+const TxParse = (() => {
+
+  /* ---------- public entry point ---------- */
+
+  async function file(f) {
+    try {
+      const name = (f && f.name || '').toLowerCase();
+      const isXlsx = name.endsWith('.xlsx') ||
+        f.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      if (isXlsx) {
+        const buf = await f.arrayBuffer();
+        return await xlsx(buf);
+      }
+      const text = await f.text();
+      return csv(text);
+    } catch (e) {
+      return { header: [], rows: [], sheet: null, error: 'Could not read file: ' + (e && e.message || e) };
+    }
+  }
+
+  /* ---------- CSV (RFC 4180) ---------- */
+
+  function csv(text) {
+    try {
+      if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1); // strip UTF-8 BOM
+      const table = [];
+      let row = [], field = '', inQuotes = false;
+      let i = 0;
+      const n = text.length;
+      const pushField = () => { row.push(field); field = ''; };
+      const pushRow = () => { pushField(); table.push(row); row = []; };
+      while (i < n) {
+        const ch = text[i];
+        if (inQuotes) {
+          if (ch === '"') {
+            if (text[i + 1] === '"') { field += '"'; i += 2; continue; }
+            inQuotes = false; i++; continue;
+          }
+          field += ch; i++; continue;
+        }
+        if (ch === '"') { inQuotes = true; i++; continue; }
+        if (ch === ',') { pushField(); i++; continue; }
+        if (ch === '\r') {
+          if (text[i + 1] === '\n') i++;
+          pushRow(); i++; continue;
+        }
+        if (ch === '\n') { pushRow(); i++; continue; }
+        field += ch; i++;
+      }
+      // trailing field/row (file may or may not end with a newline)
+      if (field.length || row.length) pushRow();
+      // drop fully-empty trailing rows (trailing blank line)
+      while (table.length && table[table.length - 1].every(c => c === '')) table.pop();
+
+      if (!table.length) return { header: [], rows: [], sheet: null, error: 'Empty file.' };
+      const header = table[0].map(h => h.trim());
+      const rows = table.slice(1).map(r => padTo(r, header.length));
+      return { header, rows, sheet: null, error: null };
+    } catch (e) {
+      return { header: [], rows: [], sheet: null, error: 'CSV parse failed: ' + (e && e.message || e) };
+    }
+  }
+
+  function padTo(arr, len) {
+    const out = arr.slice(0, len);
+    while (out.length < len) out.push('');
+    return out;
+  }
+
+  /* ---------- XLSX (ZIP + SpreadsheetML) ---------- */
+
+  async function xlsx(buf) {
+    try {
+      const zip = readZip(new Uint8Array(buf));
+      const wbXml = await inflateEntry(zip, 'xl/workbook.xml');
+      const relsXml = await inflateEntry(zip, 'xl/_rels/workbook.xml.rels');
+      if (!wbXml) return { header: [], rows: [], sheet: null, error: 'Not a valid xlsx (missing workbook.xml).' };
+
+      const wbDoc = new DOMParser().parseFromString(wbXml, 'application/xml');
+      const firstSheetEl = wbDoc.getElementsByTagName('sheet')[0];
+      const sheetName = firstSheetEl ? firstSheetEl.getAttribute('name') : null;
+      const rId = firstSheetEl ? firstSheetEl.getAttribute('r:id') : null;
+
+      let sheetPath = null;
+      if (relsXml && rId) {
+        const relsDoc = new DOMParser().parseFromString(relsXml, 'application/xml');
+        const rels = relsDoc.getElementsByTagName('Relationship');
+        for (let i = 0; i < rels.length; i++) {
+          if (rels[i].getAttribute('Id') === rId) {
+            const target = rels[i].getAttribute('Target');
+            sheetPath = target.startsWith('/') ? target.slice(1) : 'xl/' + target.replace(/^\.?\//, '');
+            break;
+          }
+        }
+      }
+      if (!sheetPath) {
+        sheetPath = Object.keys(zip.entries).find(n => /^xl\/worksheets\/[^/]+\.xml$/.test(n)) || null;
+      }
+      if (!sheetPath || !zip.entries[sheetPath]) {
+        return { header: [], rows: [], sheet: null, error: 'Not a valid xlsx (no worksheet found).' };
+      }
+
+      const sheetXml = await inflateEntry(zip, sheetPath);
+      const sstXml = await inflateEntry(zip, 'xl/sharedStrings.xml');
+      const sst = sstXml ? parseSharedStrings(sstXml) : [];
+
+      const sheetDoc = new DOMParser().parseFromString(sheetXml, 'application/xml');
+      const rowEls = sheetDoc.getElementsByTagName('row');
+      if (!rowEls.length) return { header: [], rows: [], sheet: sheetName, error: 'Sheet is empty.' };
+
+      // Pass 1: header row -> column count + names, and which columns look like dates.
+      const headerCells = readRowCells(rowEls[0], sst);
+      const headerWidth = headerCells.length ? Math.max(...headerCells.map(c => c.col)) + 1 : 0;
+      const header = new Array(headerWidth).fill('');
+      headerCells.forEach(c => { header[c.col] = String(c.value).trim(); });
+      const dateCols = new Set();
+      header.forEach((h, idx) => { if (/date|time/i.test(h)) dateCols.add(idx); });
+
+      // Pass 2: data rows, placed strictly by the `r` attribute (never document order).
+      const rows = [];
+      for (let i = 1; i < rowEls.length; i++) {
+        const cells = readRowCells(rowEls[i], sst);
+        if (!cells.length) continue;
+        const out = new Array(headerWidth).fill('');
+        cells.forEach(c => {
+          if (c.col >= headerWidth) return; // beyond the header's column count, ignore
+          let v = c.value;
+          if (c.isNumericSerial && dateCols.has(c.col)) v = excelSerialToDateStr(Number(v));
+          out[c.col] = String(v);
+        });
+        // skip rows that are entirely blank (spacer rows some exports include)
+        if (out.some(v => v !== '')) rows.push(out);
+      }
+
+      return { header, rows, sheet: sheetName, error: null };
+    } catch (e) {
+      return { header: [], rows: [], sheet: null, error: 'XLSX parse failed: ' + (e && e.message || e) };
+    }
+  }
+
+  function parseSharedStrings(xml) {
+    const doc = new DOMParser().parseFromString(xml, 'application/xml');
+    const items = doc.getElementsByTagName('si');
+    const out = new Array(items.length);
+    for (let i = 0; i < items.length; i++) {
+      const ts = items[i].getElementsByTagName('t');
+      let text = '';
+      for (let j = 0; j < ts.length; j++) text += ts[j].textContent;
+      out[i] = text;
+    }
+    return out;
+  }
+
+  /* Reads every <c> in a <row>, keyed by its `r` attribute (e.g. "C5" -> col 2).
+     Sparse cells (blank cells the exporter simply omitted) are never assumed
+     to be positional — a naive index-based read silently shifts every column
+     after a blank one. */
+  function readRowCells(rowEl, sst) {
+    const cEls = rowEl.getElementsByTagName('c');
+    const out = [];
+    for (let i = 0; i < cEls.length; i++) {
+      const c = cEls[i];
+      const ref = c.getAttribute('r');
+      if (!ref) continue;
+      const col = colLetterToIndex(ref.replace(/[0-9]/g, ''));
+      const t = c.getAttribute('t');
+      let value = '';
+      let isNumericSerial = false;
+
+      if (t === 's') {
+        const vEl = c.getElementsByTagName('v')[0];
+        const idx = vEl ? parseInt(vEl.textContent, 10) : -1;
+        value = (idx >= 0 && sst[idx] !== undefined) ? sst[idx] : '';
+      } else if (t === 'inlineStr') {
+        const isEl = c.getElementsByTagName('is')[0];
+        if (isEl) {
+          const ts = isEl.getElementsByTagName('t');
+          let text = '';
+          for (let j = 0; j < ts.length; j++) text += ts[j].textContent;
+          value = text;
+        }
+      } else if (t === 'str') {
+        const vEl = c.getElementsByTagName('v')[0];
+        value = vEl ? vEl.textContent : '';
+      } else if (t === 'b') {
+        const vEl = c.getElementsByTagName('v')[0];
+        value = (vEl && vEl.textContent === '1') ? 'TRUE' : 'FALSE';
+      } else {
+        // no t attribute => plain number (or blank if no <v>)
+        const vEl = c.getElementsByTagName('v')[0];
+        if (vEl && vEl.textContent !== '') {
+          value = vEl.textContent;
+          isNumericSerial = true;
+        } else {
+          value = '';
+        }
+      }
+      out.push({ col, value, isNumericSerial });
+    }
+    return out;
+  }
+
+  function colLetterToIndex(letters) {
+    let idx = 0;
+    for (let i = 0; i < letters.length; i++) {
+      idx = idx * 26 + (letters.charCodeAt(i) - 64); // 'A' -> 1
+    }
+    return idx - 1; // 0-based
+  }
+
+  /* Excel serial date -> 'YYYY-MM-DD HH:MM:SS', pure arithmetic (no string
+     parsing, so no locale/timezone ambiguity). Serial 1 = 1899-12-31; Excel's
+     fake 1900 leap day means serials > 59 are off by one day. */
+  function excelSerialToDateStr(serial) {
+    let days = Math.floor(serial);
+    const fracSeconds = Math.round((serial - days) * 86400);
+    if (days > 59) days -= 1;
+    const ms = Date.UTC(1899, 11, 31) + (days - 1) * 86400000 + fracSeconds * 1000;
+    const d = new Date(ms);
+    const pad = (n, w) => String(n).padStart(w || 2, '0');
+    return d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1) + '-' + pad(d.getUTCDate()) +
+      ' ' + pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()) + ':' + pad(d.getUTCSeconds());
+  }
+
+  /* ---------- ZIP (central directory walk + raw inflate) ---------- */
+
+  function readZip(bytes) {
+    const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    // Find End Of Central Directory record (PK\x05\x06), scanning backward
+    // since a variable-length comment field can follow it.
+    const EOCD_SIG = 0x06054b50;
+    let eocdOffset = -1;
+    const minOffset = Math.max(0, bytes.length - 65557);
+    for (let i = bytes.length - 22; i >= minOffset; i--) {
+      if (dv.getUint32(i, true) === EOCD_SIG) { eocdOffset = i; break; }
+    }
+    if (eocdOffset < 0) throw new Error('not a zip file (no End Of Central Directory record)');
+
+    const entryCount = dv.getUint16(eocdOffset + 10, true);
+    const cdOffset = dv.getUint32(eocdOffset + 16, true);
+
+    const entries = {};
+    let p = cdOffset;
+    const CD_SIG = 0x02014b50;
+    for (let i = 0; i < entryCount; i++) {
+      if (dv.getUint32(p, true) !== CD_SIG) throw new Error('corrupt zip central directory');
+      const method = dv.getUint16(p + 10, true);
+      const compSize = dv.getUint32(p + 20, true);
+      const uncompSize = dv.getUint32(p + 24, true);
+      const nameLen = dv.getUint16(p + 28, true);
+      const extraLen = dv.getUint16(p + 30, true);
+      const commentLen = dv.getUint16(p + 32, true);
+      const localHeaderOffset = dv.getUint32(p + 42, true);
+      const nameBytes = bytes.subarray(p + 46, p + 46 + nameLen);
+      const name = new TextDecoder('utf-8').decode(nameBytes);
+      entries[name] = { method, compSize, uncompSize, localHeaderOffset };
+      p += 46 + nameLen + extraLen + commentLen;
+    }
+    return { bytes, dv, entries };
+  }
+
+  async function inflateEntry(zip, name) {
+    const meta = zip.entries[name];
+    if (!meta) return null;
+    const dv = zip.dv;
+    const LFH_SIG = 0x04034b50;
+    const off = meta.localHeaderOffset;
+    if (dv.getUint32(off, true) !== LFH_SIG) throw new Error('corrupt local file header for ' + name);
+    const nameLen = dv.getUint16(off + 26, true);
+    const extraLen = dv.getUint16(off + 28, true);
+    const dataStart = off + 30 + nameLen + extraLen;
+    const compBytes = zip.bytes.subarray(dataStart, dataStart + meta.compSize);
+
+    let raw;
+    if (meta.method === 0) {
+      raw = compBytes;
+    } else if (meta.method === 8) {
+      const ds = new DecompressionStream('deflate-raw');
+      const stream = new Blob([compBytes]).stream().pipeThrough(ds);
+      raw = new Uint8Array(await new Response(stream).arrayBuffer());
+    } else {
+      throw new Error('unsupported zip compression method ' + meta.method + ' for ' + name);
+    }
+    return new TextDecoder('utf-8').decode(raw);
+  }
+
+  return { file, csv, xlsx, excelSerialToDateStr };
+})();
+</script>
+
+<script>
+/* ==================== part-b-store.js (TxStore) ====================
+   Canonical transaction ledger built on top of TxParse's {header, rows}
+   tables. Owns localStorage persistence, source->column mapping, dedup
+   ingestion, and read-side query/aggregation. No third-party libraries,
+   no ES modules (classic <script> IIFE, must run from file://). Never
+   throws from a public method — every path returns a result object;
+   failures surface via an `error` string, matching TxParse's design. */
+const TxStore = (() => {
+
+  const KEY = 'cryptofolio.cvstx.v1';
+
+  /* ---------- header matching ----------
+     Column names in real exports vary in case/whitespace and sometimes
+     carry a trailing '*' or a unit suffix like 'Amount(USDT)'. Matching
+     is done on a normalized, prefix basis rather than exact equality so
+     small header drift doesn't silently break a whole source. */
+
+  // lowercase, collapse whitespace, drop a trailing '*', drop a trailing
+  // parenthetical/unit suffix e.g. 'Amount(USDT)' -> 'amount', 'Amount *' -> 'amount'
+  function normHeader(h) {
+    return String(h || '')
+      .trim()
+      .toLowerCase()
+      .replace(/\*+\s*$/, '')
+      .replace(/\([^)]*\)\s*$/, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  // Find the index of the first header cell whose normalized form equals,
+  // or starts with, any of the normalized aliases (prefix match handles
+  // suffixes normHeader() didn't already strip, e.g. trailing units without
+  // parens). Returns -1 if none of the aliases match anything.
+  function findColumn(header, aliases) {
+    const normed = header.map(normHeader);
+    const normAliases = aliases.map(normHeader);
+    for (let i = 0; i < normed.length; i++) {
+      for (const a of normAliases) {
+        if (a && (normed[i] === a || normed[i].startsWith(a))) return i;
+      }
+    }
+    return -1;
+  }
+
+  /* ---------- SOURCES mapping table ----------
+     One entry per source. `required` lists the fields that MUST resolve to
+     a real column for the file to be recognized as this source (Time and
+     Crypto, at minimum — without those there's no record to build).
+     `amountField` + `amountAliases` are optional: when present, the
+     resolved column's value becomes that field on the record; the other
+     of requestAmount/deposit is always null. Sources with no amountField
+     (futures, spot) always store both as null, regardless of file content -
+     a wrong number in a tax tool is worse than a blank one. Adding a new
+     source's amount column later is a one-line `amountField`/`amountAliases`
+     addition, nothing structural. */
+  const SOURCES = {
+    withdraw: {
+      required: ['time', 'crypto'],
+      aliases: {
+        time: ['Time'],
+        crypto: ['Crypto'],
+        network: ['Network'],
+        status: ['Status'],
+        txid: ['TxID', 'Tx ID', 'Transaction ID'],
+      },
+      amountField: 'requestAmount',
+      amountAliases: ['Request Amount', 'Amount'],
+    },
+    deposit: {
+      required: ['time', 'crypto'],
+      aliases: {
+        time: ['Time'],
+        crypto: ['Crypto'],
+        network: ['Network'],
+        status: ['Status'],
+        txid: ['TxID', 'Tx ID', 'Transaction ID'],
+      },
+      amountField: 'deposit',
+      amountAliases: ['Deposit Amount', 'Amount'],
+    },
+    // No real export file exists yet for these two. Best-guess common header
+    // names for Time/Crypto/Network; amount columns intentionally omitted -
+    // requestAmount/deposit are always null for these sources (see above).
+    futures: {
+      required: ['time', 'crypto'],
+      aliases: {
+        time: ['Time', 'Date', 'Order Time', 'Trade Time'],
+        crypto: ['Crypto', 'Symbol', 'Pair', 'Contract'],
+        network: ['Network'],
+        status: ['Status'],
+        txid: ['TxID', 'Tx ID', 'Order ID', 'Transaction ID'],
+      },
+    },
+    spot: {
+      required: ['time', 'crypto'],
+      aliases: {
+        time: ['Time', 'Date', 'Order Time', 'Trade Time'],
+        crypto: ['Crypto', 'Symbol', 'Pair'],
+        network: ['Network'],
+        status: ['Status'],
+        txid: ['TxID', 'Tx ID', 'Order ID', 'Transaction ID'],
+      },
+    },
+  };
+
+  /* ---------- time parsing ----------
+     'YYYY-MM-DD HH:MM:SS', parsed component-by-component. Never fed to
+     `new Date(str)` - that string form's interpretation is JS-engine/
+     locale dependent and a UTC shift can silently move a transaction into
+     the wrong month, corrupting a tax total at a month boundary. */
+  const TIME_RE = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/;
+  function parseTimeRaw(s) {
+    const m = TIME_RE.exec(String(s || '').trim());
+    if (!m) return NaN;
+    const [, y, mo, d, h, mi, se] = m;
+    return Date.UTC(+y, +mo - 1, +d, +h, +mi, +se);
+  }
+
+  /* ---------- number parsing ----------
+     Values arrive as numeric-looking strings with full precision preserved
+     (e.g. "2664726.384"). Blank cells are "". Blank/unparseable -> null,
+     never 0/NaN - a real zero and "not applicable" are different facts
+     in a tax tool. */
+  function parseAmount(s) {
+    const t = String(s == null ? '' : s).trim();
+    if (t === '') return null;
+    const n = Number(t);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  /* ---------- load / save ----------
+     Matches TxSets' convention exactly: JSON.parse(localStorage.getItem)
+     guarded by try/catch with a fresh-default fallback, save() wrapped in
+     its own try/catch around setItem. */
+  function freshStore() { return { v: 1, sets: {} }; }
+
+  function load() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(KEY));
+      if (raw && typeof raw === 'object' && raw.sets && typeof raw.sets === 'object') return raw;
+    } catch { /* fall through to a fresh store */ }
+    return freshStore();
+  }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch {} }
+
+  let store = load(); // { v:1, sets: { <setId>: [record, ...] } }
+
+  function setRows(setId) {
+    if (!store.sets[setId]) store.sets[setId] = [];
+    return store.sets[setId];
+  }
+
+  /* ---------- ingest ---------- */
+
+  function ingest(parsed, source, fileName, setId) {
+    try {
+      if (!parsed || parsed.error) {
+        return { added: 0, skipped: 0, error: parsed && parsed.error ? parsed.error : 'No data to import.' };
+      }
+      const def = SOURCES[source];
+      if (!def) {
+        return { added: 0, skipped: 0, error: "Unknown source '" + source + "'." };
+      }
+      const header = parsed.header || [];
+      const colIdx = {};
+      for (const field of Object.keys(def.aliases)) {
+        colIdx[field] = findColumn(header, def.aliases[field]);
+      }
+      const missingRequired = def.required.filter(f => colIdx[f] === -1);
+      if (missingRequired.length) {
+        return {
+          added: 0, skipped: 0,
+          error: "Unrecognized file for source '" + source + "': found columns [" + header.join(', ') +
+            '], expected something matching ' + def.required.map(f => capitalize(f)).join('/') + '.',
+        };
+      }
+      let amountIdx = -1;
+      if (def.amountField) amountIdx = findColumn(header, def.amountAliases);
+
+      const rows = setRows(setId);
+      const existingIds = new Set(rows.map(r => r.id));
+
+      let added = 0, skipped = 0;
+      const toAdd = [];
+      for (const row of (parsed.rows || [])) {
+        const timeRaw = (colIdx.time > -1 ? row[colIdx.time] : '') || '';
+        const crypto = (colIdx.crypto > -1 ? row[colIdx.crypto] : '') || '';
+        const network = colIdx.network > -1 ? (row[colIdx.network] || '') : '';
+        const status = colIdx.status > -1 ? (row[colIdx.status] || '') : '';
+        const txid = colIdx.txid > -1 ? (row[colIdx.txid] || '') : '';
+
+        let requestAmount = null, deposit = null;
+        if (def.amountField && amountIdx > -1) {
+          const amt = parseAmount(row[amountIdx]);
+          if (def.amountField === 'requestAmount') requestAmount = amt;
+          else if (def.amountField === 'deposit') deposit = amt;
+        }
+
+        const dedupAmount = requestAmount !== null ? requestAmount : (deposit !== null ? deposit : '');
+        const id = source + '|' + timeRaw + '|' + crypto + '|' + (txid || dedupAmount);
+
+        const record = {
+          id,
+          source,
+          time: parseTimeRaw(timeRaw),
+          timeRaw,
+          crypto,
+          network,
+          requestAmount,
+          deposit,
+          status,
+          txid,
+          fileName: fileName || '',
+        };
+
+        if (existingIds.has(id)) { skipped++; continue; }
+        existingIds.add(id);
+        toAdd.push(record);
+        added++;
+      }
+
+      if (added) {
+        rows.push(...toAdd);
+        save();
+      }
+      return { added, skipped, error: null };
+    } catch (e) {
+      return { added: 0, skipped: 0, error: 'Import failed: ' + (e && e.message || e) };
+    }
+  }
+
+  function capitalize(s) { return s.length ? s[0].toUpperCase() + s.slice(1) : s; }
+
+  /* ---------- reads ---------- */
+
+  function all(setId) {
+    try {
+      return (store.sets[setId] || []).slice();
+    } catch { return []; }
+  }
+
+  function remove(setId, fileName) {
+    try {
+      const rows = store.sets[setId];
+      if (!rows) return;
+      store.sets[setId] = rows.filter(r => r.fileName !== fileName);
+      save();
+    } catch { /* no-op on failure, matches never-throw contract */ }
+  }
+
+  function distinctSorted(setId, keyFn) {
+    try {
+      const set = new Set();
+      for (const r of all(setId)) {
+        const v = keyFn(r);
+        if (v !== '' && v != null) set.add(v);
+      }
+      return Array.from(set).sort();
+    } catch { return []; }
+  }
+
+  function months(setId) {
+    return distinctSorted(setId, r => (r.timeRaw || '').slice(0, 7));
+  }
+  function years(setId) {
+    return distinctSorted(setId, r => (r.timeRaw || '').slice(0, 4));
+  }
+  function cryptos(setId) {
+    return distinctSorted(setId, r => r.crypto);
+  }
+  function networks(setId) {
+    return distinctSorted(setId, r => r.network);
+  }
+
+  /* ---------- query ----------
+     filterState: { crypto, network, deposit, requestAmount: Boolean;
+                    month: 'YYYY-MM'|null; year: 'YYYY'|null }
+     See spec for the exact, already-resolved filtering/totals logic - it's
+     intentionally reproduced verbatim rather than redesigned, so behavior
+     matches a sibling TxFilter module this code never sees. */
+  function query(setId, filterState) {
+    try {
+      const state = filterState || {};
+      let rows = all(setId);
+
+      // Step 3 (period filter) is computed first and reused for totals,
+      // since totals are defined over the period-filtered set "before
+      // considering step 2's union".
+      let periodRows = rows;
+      if (state.month) {
+        periodRows = periodRows.filter(r => (r.timeRaw || '').slice(0, 7) === state.month);
+      } else if (state.year) {
+        periodRows = periodRows.filter(r => (r.timeRaw || '').slice(0, 4) === state.year);
+      }
+
+      // Step 2: row-type filter, applied on top of the period filter.
+      let out = periodRows;
+      const depOn = !!state.deposit, reqOn = !!state.requestAmount;
+      if (depOn || reqOn) {
+        if (depOn && reqOn) {
+          out = out.filter(r => r.deposit !== null || r.requestAmount !== null);
+        } else if (depOn) {
+          out = out.filter(r => r.deposit !== null);
+        } else if (reqOn) {
+          out = out.filter(r => r.requestAmount !== null);
+        }
+      }
+
+      // Step 5: sort ascending by timeRaw (lexicographic == chronological
+      // for 'YYYY-MM-DD HH:MM:SS'). Never sort by the epoch `time` field.
+      out = out.slice().sort((a, b) => (a.timeRaw < b.timeRaw ? -1 : a.timeRaw > b.timeRaw ? 1 : 0));
+
+      // Step 7: totals only when deposit toggle is on AND a period is set;
+      // grouped from periodRows (deposit !== null), independent of the
+      // requestAmount toggle / step 2's union.
+      let totalsByCrypto = [];
+      if (depOn && (state.month || state.year)) {
+        const byCrypto = new Map();
+        for (const r of periodRows) {
+          if (r.deposit === null) continue;
+          const entry = byCrypto.get(r.crypto) || { crypto: r.crypto, total: 0, count: 0 };
+          entry.total += r.deposit;
+          entry.count += 1;
+          byCrypto.set(r.crypto, entry);
+        }
+        totalsByCrypto = Array.from(byCrypto.values()).sort((a, b) => a.crypto < b.crypto ? -1 : a.crypto > b.crypto ? 1 : 0);
+      }
+
+      return { rows: out, totalsByCrypto };
+    } catch (e) {
+      return { rows: [], totalsByCrypto: [] };
+    }
+  }
+
+  return { load, save, ingest, all, remove, months, years, cryptos, networks, query, SOURCES };
+})();
+</script>
+
+<script>
+/* ==================== part-d-filter.js (TxFilter) ====================
+   Pure state machine behind the "Filtered ver." filter bar: six filters
+   (Monthly, Yearly, Crypto, Deposit, Request Amount, Network) that decide
+   which rows and columns are shown, plus a per-crypto totals-row condition.
+   Zero DOM. Holds its own internal singleton state, like this codebase's
+   other small state-machine modules. Filter state is global (not per
+   transaction-set) by design. */
+const TxFilter = (() => {
+
+  /* ---------- internal singleton state ---------- */
+
+  const baseline = () => ({
+    crypto: false,
+    network: false,
+    deposit: false,
+    requestAmount: false,
+    month: null,   // 'YYYY-MM' | null
+    year: null,    // 'YYYY' | null
+  });
+
+  let _state = baseline();
+
+  /* ---------- public API ---------- */
+
+  // Returns a copy so callers can't mutate internals directly.
+  function state() {
+    return { ..._state };
+  }
+
+  // name is one of 'crypto' | 'network' | 'deposit' | 'requestAmount'. Flips that boolean.
+  function toggle(name) {
+    if (!(name in _state) || typeof _state[name] !== 'boolean') return;
+    _state[name] = !_state[name];
+  }
+
+  // Setting a month always sets year to that month's year too (a month implies
+  // its year). Setting m to null leaves year untouched.
+  function setMonth(m) {
+    _state.month = m;
+    if (m !== null) _state.year = m.slice(0, 4);
+  }
+
+  // If the currently-selected month is outside the new year (or y is null, or
+  // month doesn't start with y), drop month. A year that still matches the
+  // current month leaves month alone.
+  function setYear(y) {
+    _state.year = y;
+    if (y === null || !(_state.month && _state.month.startsWith(y))) {
+      _state.month = null;
+    }
+  }
+
+  // Resets to baseline (all false/null).
+  function clear() {
+    _state = baseline();
+  }
+
+  // Fixed-order subset of ['time','crypto','network','requestAmount','deposit'].
+  function visibleColumns() {
+    const { crypto, network, deposit, requestAmount, month, year } = _state;
+    const anyActive = crypto || network || deposit || requestAmount || !!month || !!year;
+
+    if (!anyActive) {
+      return ['time', 'crypto', 'network', 'requestAmount', 'deposit'];
+    }
+
+    const cols = ['time', 'crypto'];
+    if (network) cols.push('network');
+    if (requestAmount) cols.push('requestAmount');
+    if (deposit) cols.push('deposit');
+    return cols;
+  }
+
+  // True iff the deposit toggle is on AND (month or year) is set.
+  function showTotals() {
+    return _state.deposit && (!!_state.month || !!_state.year);
+  }
+
+  // Takes a full record array and returns a NEW filtered + sorted array
+  // reflecting the current internal state. Never mutates the input array or
+  // its records.
+  function apply(records) {
+    const { deposit, requestAmount, month, year } = _state;
+
+    let out = records.filter((r) => {
+      // 1. Row-type filter (only applies if deposit and/or requestAmount is on).
+      if (deposit && requestAmount) {
+        // Union: either field non-null. No record has both fields non-null
+        // simultaneously, so AND here would silently zero out results.
+        if (!(r.deposit !== null || r.requestAmount !== null)) return false;
+      } else if (deposit) {
+        if (r.deposit === null) return false;
+      } else if (requestAmount) {
+        if (r.requestAmount === null) return false;
+      }
+      // Neither on => no row-type filtering.
+
+      // 2. Period filter: month takes precedence over year if both are set
+      //    (setMonth/setYear keep them coherent, so this is mostly a
+      //    tie-breaker for direct state edits). String comparison only —
+      //    never new Date(timeRaw), which is locale/engine dependent and
+      //    can shift a row across a month/year boundary.
+      if (month) {
+        if (r.timeRaw.slice(0, 7) !== month) return false;
+      } else if (year) {
+        if (r.timeRaw.slice(0, 4) !== year) return false;
+      }
+
+      // 3. crypto / network toggles never filter rows, only visibleColumns().
+
+      return true;
+    });
+
+    // Copy each record shallowly so the caller's records are never mutated,
+    // then sort ascending by timeRaw (lexicographic === chronological for
+    // 'YYYY-MM-DD HH:MM:SS').
+    out = out.map((r) => ({ ...r }));
+    out.sort((a, b) => (a.timeRaw < b.timeRaw ? -1 : a.timeRaw > b.timeRaw ? 1 : 0));
+
+    // A period/toggle combo that matches zero rows is a valid [] result;
+    // internal state is never auto-cleared here.
+    return out;
+  }
+
+  return { state, toggle, setMonth, setYear, clear, visibleColumns, showTotals, apply };
+})();
+</script>
+
+<script>
+/* ==================== part-c-e-view.js (TxView) ====================
+   HTML/CSS skeleton (see #view-transactions markup + its CSS) and the JS
+   that fills it, owned together deliberately: a prior attempt split markup
+   and renderer across two parallel agents and they drifted (renderer only
+   referenced a fraction of the markup's ids). Renders the Normal tab (every
+   imported row, all columns, newest first) and the Filtered ver. tab
+   (TxFilter-driven column set + TxStore-driven rows/totals), and hooks the
+   existing TxSets file-picker flow up to TxParse + TxStore so a picked file
+   actually gets parsed, ingested, and rendered. */
+const TxView = (() => {
+
+  const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const COLUMN_LABELS = { time: 'Time/date', crypto: 'Crypto', network: 'Network', requestAmount: 'Request Amount', deposit: 'Deposit' };
+  const NUM_COLS = new Set(['requestAmount', 'deposit']);
+
+  function formatMonth(m) { // 'YYYY-MM' -> 'Nov 2025'
+    return MONTH_NAMES[Number(m.slice(5, 7)) - 1] + ' ' + m.slice(0, 4);
+  }
+
+  // Full precision, grouped integer part - never rounds away a significant
+  // digit (real holdings here run from 0.0001 to 24937648.72).
+  function fmtAmount(n) {
+    if (n === null || n === undefined || Number.isNaN(n)) return '—';
+    return n.toLocaleString('en-US', { maximumFractionDigits: 10 });
+  }
+  // null and '' (network is '' when absent) both mean "nothing to show" -
+  // rendering either as a blank cell reads as a bug, not as data.
+  function cellText(v) {
+    return (v === null || v === undefined || v === '') ? '—' : esc(String(v));
+  }
+
+  /* ---------- Normal tab: every row, all columns, newest first ---------- */
+
+  function renderNormal(setId) {
+    const rows = TxStore.all(setId).sort((a, b) => (a.timeRaw < b.timeRaw ? 1 : a.timeRaw > b.timeRaw ? -1 : 0));
+    document.getElementById('tx-normal-wrap').classList.toggle('hidden', rows.length === 0);
+    document.getElementById('tx-normal-body').innerHTML = rows.map(r =>
+      '<tr>'
+      + '<td>' + esc(r.timeRaw) + '</td>'
+      + '<td>' + cellText(r.crypto) + '</td>'
+      + '<td>' + cellText(r.network) + '</td>'
+      + '<td class="num">' + fmtAmount(r.requestAmount) + '</td>'
+      + '<td class="num">' + fmtAmount(r.deposit) + '</td>'
+      + '</tr>'
+    ).join('');
+  }
+
+  /* ---------- Filtered ver. tab ---------- */
+
+  function renderFilterBar(setId) {
+    const state = TxFilter.state();
+    const months = TxStore.months(setId);
+    const years = TxStore.years(setId);
+
+    document.getElementById('tx-month-menu').innerHTML =
+      '<button type="button" data-month="">All months</button>'
+      + months.map(m => '<button type="button" data-month="' + esc(m) + '"'
+        + (state.month === m ? ' class="active"' : '') + '>' + esc(formatMonth(m)) + '</button>').join('');
+    document.getElementById('tx-year-menu').innerHTML =
+      '<button type="button" data-year="">All years</button>'
+      + years.map(y => '<button type="button" data-year="' + esc(y) + '"'
+        + (state.year === y ? ' class="active"' : '') + '>' + esc(y) + '</button>').join('');
+
+    document.getElementById('tx-month-val').textContent = state.month ? formatMonth(state.month) : '';
+    document.getElementById('tx-year-val').textContent = state.year || '';
+
+    document.querySelectorAll('#tx-filterbar .tx-chip[data-toggle]').forEach(chip => {
+      chip.classList.toggle('active', !!state[chip.dataset.toggle]);
+    });
+  }
+
+  function cellFor(col, r) {
+    if (col === 'time') return esc(r.timeRaw);
+    if (col === 'requestAmount') return fmtAmount(r.requestAmount);
+    if (col === 'deposit') return fmtAmount(r.deposit);
+    return cellText(r[col]); // crypto, network
+  }
+
+  function renderFiltered(setId) {
+    // The one auto-clear case in the spec: a selected month that no longer
+    // exists for this set (import/remove/tab-switch all funnel through
+    // render(), so checking here covers all three).
+    let state = TxFilter.state();
+    if (state.month && !TxStore.months(setId).includes(state.month)) {
+      TxFilter.setMonth(null);
+      state = TxFilter.state();
+    }
+
+    const cols = TxFilter.visibleColumns();
+    const { rows, totalsByCrypto } = TxStore.query(setId, state);
+
+    document.getElementById('tx-filtered-head').innerHTML = '<tr>' + cols.map(c =>
+      '<th' + (NUM_COLS.has(c) ? ' class="num"' : '') + ' data-i18n="' + esc(COLUMN_LABELS[c]) + '">' + esc(COLUMN_LABELS[c]) + '</th>'
+    ).join('') + '</tr>';
+
+    document.getElementById('tx-filtered-body').innerHTML = rows.map(r =>
+      '<tr>' + cols.map(c => '<td' + (NUM_COLS.has(c) ? ' class="num"' : '') + '>' + cellFor(c, r) + '</td>').join('') + '</tr>'
+    ).join('');
+
+    const foot = document.getElementById('tx-filtered-foot');
+    if (TxFilter.showTotals() && totalsByCrypto.length) {
+      foot.innerHTML = totalsByCrypto.map((t, i) => '<tr class="tx-totals-row">' + cols.map(c => {
+        const cls = NUM_COLS.has(c) ? ' class="num"' : '';
+        if (c === 'time') return '<td' + cls + ' data-i18n="Total">' + (i === 0 ? 'Total' : '') + '</td>';
+        if (c === 'crypto') return '<td' + cls + '>' + esc(t.crypto) + '</td>';
+        if (c === 'deposit') return '<td' + cls + '>' + fmtAmount(t.total) + '</td>';
+        return '<td' + cls + '>—</td>';
+      }).join('') + '</tr>').join('');
+    } else {
+      foot.innerHTML = '';
+    }
+
+    document.getElementById('tx-filtered-empty').classList.toggle('hidden', rows.length > 0);
+    document.getElementById('tx-filtered-wrap').classList.toggle('hidden', rows.length === 0);
+  }
+
+  /* ---------- sub-tab switching (scoped to #tx-subtabs - Portfolio's own
+     .pf-subtab wiring was accidentally global and got fixed alongside this
+     feature; scoping ours from the start avoids repeating that bug) ---------- */
+
+  function switchSubTab(name) {
+    document.querySelectorAll('#tx-subtabs .pf-subtab').forEach(b =>
+      b.classList.toggle('active', b.dataset.sub === name));
+    document.getElementById('tx-panel-normal').classList.toggle('active', name === 'normal');
+    document.getElementById('tx-panel-filtered').classList.toggle('active', name === 'filtered');
+  }
+
+  /* ---------- orchestration ---------- */
+
+  function render() {
+    if (typeof TxSets === 'undefined') return;
+    const setId = TxSets.activeId();
+    if (!setId) return;
+    renderNormal(setId);
+    renderFilterBar(setId);
+    renderFiltered(setId);
+    if (typeof Translate !== 'undefined' && Translate.lang !== 'en') Translate.apply();
+  }
+
+  function init() {
+    const subtabs = document.getElementById('tx-subtabs');
+    if (!subtabs) return;
+    subtabs.querySelectorAll('.pf-subtab').forEach(b =>
+      b.addEventListener('click', () => switchSubTab(b.dataset.sub)));
+
+    document.getElementById('tx-filterbar').addEventListener('click', e => {
+      const chip = e.target.closest('.tx-chip[data-toggle]');
+      if (chip) { TxFilter.toggle(chip.dataset.toggle); render(); return; }
+      if (e.target.closest('#tx-filter-clear-btn')) { TxFilter.clear(); render(); }
+    });
+
+    const monthBtn = document.getElementById('tx-month-btn');
+    const monthMenu = document.getElementById('tx-month-menu');
+    const yearBtn = document.getElementById('tx-year-btn');
+    const yearMenu = document.getElementById('tx-year-menu');
+
+    monthBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      const open = monthMenu.classList.toggle('hidden') === false;
+      monthBtn.setAttribute('aria-expanded', String(open));
+      yearMenu.classList.add('hidden'); yearBtn.setAttribute('aria-expanded', 'false');
+    });
+    yearBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      const open = yearMenu.classList.toggle('hidden') === false;
+      yearBtn.setAttribute('aria-expanded', String(open));
+      monthMenu.classList.add('hidden'); monthBtn.setAttribute('aria-expanded', 'false');
+    });
+    monthMenu.addEventListener('click', e => {
+      const b = e.target.closest('button[data-month]');
+      if (!b) return;
+      TxFilter.setMonth(b.dataset.month === '' ? null : b.dataset.month);
+      monthMenu.classList.add('hidden'); monthBtn.setAttribute('aria-expanded', 'false');
+      render();
+    });
+    yearMenu.addEventListener('click', e => {
+      const b = e.target.closest('button[data-year]');
+      if (!b) return;
+      TxFilter.setYear(b.dataset.year === '' ? null : b.dataset.year);
+      yearMenu.classList.add('hidden'); yearBtn.setAttribute('aria-expanded', 'false');
+      render();
+    });
+    document.addEventListener('click', e => {
+      if (!e.target.closest('#tx-month-btn') && !e.target.closest('#tx-month-menu')) {
+        monthMenu.classList.add('hidden'); monthBtn.setAttribute('aria-expanded', 'false');
+      }
+      if (!e.target.closest('#tx-year-btn') && !e.target.closest('#tx-year-menu')) {
+        yearMenu.classList.add('hidden'); yearBtn.setAttribute('aria-expanded', 'false');
+      }
+    });
+    document.addEventListener('keydown', e => {
+      if (e.key !== 'Escape') return;
+      monthMenu.classList.add('hidden'); monthBtn.setAttribute('aria-expanded', 'false');
+      yearMenu.classList.add('hidden'); yearBtn.setAttribute('aria-expanded', 'false');
+    });
+  }
+
+  return { init, render };
 })();
 </script>
 
@@ -7511,6 +8671,7 @@ document.addEventListener('DOMContentLoaded', () => {
   Gallery.init();
   Translate.init();
   Backup.init();
+  TxView.init();
   TxSets.init();
   AddCoins.init();
 
