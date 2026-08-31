@@ -700,6 +700,15 @@ html:not(.view-home) #page-home { display: none; }
 #page-app .csv-file-remove:hover { color: var(--red); }
 #page-app .csv-file-result { font-size: 12px; flex-shrink: 1; min-width: 0; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* Remove-file dropdown: a plain .menu, but can list every imported file
+   across every category, so it gets its own scroll cap rather than growing
+   off the bottom of the viewport like the short fixed-option menus do. */
+#page-app #csv-remove-menu { max-width: 300px; max-height: 340px; overflow-y: auto; }
+#page-app .csv-remove-group-label { font-size: 11px; font-weight: 700; letter-spacing: .04em; color: var(--muted); text-transform: uppercase; padding: 8px 12px 2px; }
+#page-app #csv-remove-menu button { display: flex; align-items: baseline; gap: 8px; overflow: hidden; }
+#page-app .csv-remove-menu-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+#page-app .csv-remove-menu-count { flex-shrink: 0; margin-left: auto; color: var(--muted); font-size: 11.5px; }
+
 /* Filtered ver. filter bar: Category/Monthly/Yearly are button+.menu
    dropdowns (same widget as csv-add-btn above). Below it sits the column
    toggle row - independent multi-select pills (not .segmented's joined bar)
@@ -740,6 +749,11 @@ html:not(.view-home) #page-home { display: none; }
   color: var(--text); margin: 0; padding-bottom: 8px; border-bottom: 2px solid var(--border);
 }
 #page-app .tx-cat-count { margin-left: auto; font-size: 11.5px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--muted); }
+/* Only rendered when the category has at least one removable (non-legacy)
+   file - a category holding only read-only legacy data gets no button,
+   rather than one that does nothing when clicked. */
+#page-app .tx-cat-delete { background: none; border: none; color: var(--muted); font-size: 13px; line-height: 1; cursor: pointer; padding: 3px 4px; flex-shrink: 0; border-radius: 5px; }
+#page-app .tx-cat-delete:hover { color: var(--red); background: rgba(234, 57, 67, 0.12); }
 #page-app .tx-file-block { display: flex; flex-direction: column; gap: 6px; }
 #page-app .tx-file-caption { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); padding: 0 2px; }
 #page-app .tx-file-title { font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
@@ -2536,7 +2550,14 @@ if (VIEW === 'home') {
                  grey out the very file the user is trying to import. -->
             <input type="file" id="csv-file-input" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" multiple hidden>
           </div>
-          <button class="btn" id="csv-remove-btn">− <span data-i18n="Remove CSV file">Remove CSV file</span></button>
+          <!-- Lists every currently-imported (non-legacy) file across all
+               categories for the active set; picking one removes it. Disabled
+               rather than hidden when there is nothing removable, so the
+               control stays discoverable. -->
+          <div class="menu-wrap">
+            <button class="btn" id="csv-remove-btn" aria-haspopup="true" aria-expanded="false">− <span data-i18n="Remove CSV file">Remove CSV file</span></button>
+            <div class="menu hidden" id="csv-remove-menu"></div>
+          </div>
           <div class="menu-wrap">
             <button class="btn icon" id="csv-menu-btn" aria-label="Transactions menu">⋮</button>
             <div class="menu hidden" id="csv-menu">
@@ -7207,8 +7228,37 @@ const TxSets = (() => {
     ).join('');
   }
 
+  /* "− Remove CSV file" dropdown: every currently-imported (non-legacy) file
+     across every category for the active set, so a file can be removed after
+     a reload once the session-only confirmation strip above has emptied out.
+     Legacy (v1) rows never appear here - they aren't real file entries and
+     TxStore never writes to that key. Disabled rather than hidden when
+     there's nothing removable, matching how csv-menu's own delete option is
+     hidden for the un-deletable default set. */
+  function renderRemoveMenu() {
+    const setId = active().id;
+    const btn = document.getElementById('csv-remove-btn');
+    const menu = document.getElementById('csv-remove-menu');
+    if (!btn || !menu) return;
+    const removable = (typeof TxStore !== 'undefined' ? TxStore.files(setId) : []).filter(f => !f.legacy);
+    btn.disabled = removable.length === 0;
+    btn.title = removable.length === 0 ? 'Nothing imported yet for this transaction set' : '';
+    const groups = Object.keys(SOURCE_LABELS)
+      .map(src => ({ src, list: removable.filter(f => f.category === src) }))
+      .filter(g => g.list.length);
+    menu.innerHTML = groups.map(g =>
+      '<div class="csv-remove-group-label">' + esc(SOURCE_LABELS[g.src]) + '</div>'
+      + g.list.map(f =>
+        '<button type="button" data-remove-file="' + esc(f.fileName) + '" aria-label="Remove ' + esc(f.fileName) + '">'
+        + '<span class="csv-remove-menu-name">' + esc(f.fileName) + '</span>'
+        + '<span class="csv-remove-menu-count">' + f.rows.length + (f.rows.length === 1 ? ' row' : ' rows') + '</span>'
+        + '</button>'
+      ).join('')
+    ).join('');
+  }
+
   function render() {
-    renderTabs(); renderHead(); renderFiles();
+    renderTabs(); renderHead(); renderFiles(); renderRemoveMenu();
     if (typeof TxView !== 'undefined') TxView.render();
   }
 
@@ -7268,11 +7318,14 @@ const TxSets = (() => {
     const addBtn = document.getElementById('csv-add-btn');
     const addMenu = document.getElementById('csv-add-menu');
     const fileInput = document.getElementById('csv-file-input');
+    const removeBtn = document.getElementById('csv-remove-btn');
+    const removeMenu = document.getElementById('csv-remove-menu');
     addBtn.addEventListener('click', e => {
       e.stopPropagation();
       const open = addMenu.classList.toggle('hidden') === false;
       addBtn.setAttribute('aria-expanded', String(open));
       document.getElementById('csv-menu').classList.add('hidden'); // never both open at once
+      removeMenu.classList.add('hidden'); removeBtn.setAttribute('aria-expanded', 'false');
     });
     addMenu.addEventListener('click', e => {
       const b = e.target.closest('button[data-src]');
@@ -7281,6 +7334,26 @@ const TxSets = (() => {
       addMenu.classList.add('hidden');
       addBtn.setAttribute('aria-expanded', 'false');
       fileInput.click(); // native OS file browser, scoped to this machine's files
+    });
+
+    removeBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      if (removeBtn.disabled) return;
+      const open = removeMenu.classList.toggle('hidden') === false;
+      removeBtn.setAttribute('aria-expanded', String(open));
+      addMenu.classList.add('hidden'); addBtn.setAttribute('aria-expanded', 'false');
+      document.getElementById('csv-menu').classList.add('hidden');
+    });
+    removeMenu.addEventListener('click', e => {
+      const b = e.target.closest('button[data-remove-file]');
+      if (!b) return;
+      const setId = active().id;
+      const fileName = b.dataset.removeFile;
+      const rows = b.querySelector('.csv-remove-menu-count').textContent;
+      if (!confirm('Remove "' + fileName + '" (' + rows + ')? This cannot be undone.')) return;
+      TxStore.remove(setId, fileName);
+      removeMenu.classList.add('hidden'); removeBtn.setAttribute('aria-expanded', 'false');
+      render();
     });
     fileInput.addEventListener('change', async () => {
       if (pendingCategory && fileInput.files.length) {
@@ -7314,6 +7387,7 @@ const TxSets = (() => {
       document.getElementById('csv-menu').classList.toggle('hidden');
       addMenu.classList.add('hidden');
       addBtn.setAttribute('aria-expanded', 'false');
+      removeMenu.classList.add('hidden'); removeBtn.setAttribute('aria-expanded', 'false');
     });
     document.getElementById('csv-menu').addEventListener('click', e => {
       const b = e.target.closest('button[data-act]');
@@ -7328,11 +7402,17 @@ const TxSets = (() => {
         addMenu.classList.add('hidden');
         addBtn.setAttribute('aria-expanded', 'false');
       }
+      if (!e.target.closest('#csv-remove-btn') && !e.target.closest('#csv-remove-menu')) {
+        removeMenu.classList.add('hidden');
+        removeBtn.setAttribute('aria-expanded', 'false');
+      }
     });
     document.addEventListener('keydown', e => {
       if (e.key !== 'Escape') return;
       addMenu.classList.add('hidden');
       addBtn.setAttribute('aria-expanded', 'false');
+      removeMenu.classList.add('hidden');
+      removeBtn.setAttribute('aria-expanded', 'false');
     });
 
     document.getElementById('nt-icon').addEventListener('click', () => {
@@ -7881,6 +7961,18 @@ const TxStore = (() => {
     } catch { /* no-op on failure, matches never-throw contract */ }
   }
 
+  // Removes every v2 file in one category for one set - legacy (v1) rows are
+  // never touched by this or any other write path, so a category that is
+  // legacy-only has nothing this can remove.
+  function removeCategory(setId, category) {
+    try {
+      const list = store.sets[setId];
+      if (!Array.isArray(list)) return;
+      store.sets[setId] = list.filter(f => f.category !== category);
+      save();
+    } catch { /* no-op on failure, matches never-throw contract */ }
+  }
+
   function periodKeys(setId) {
     const ms = new Set(), ys = new Set();
     for (const f of files(setId)) {
@@ -7937,7 +8029,7 @@ const TxStore = (() => {
     } catch { return []; }
   }
 
-  return { load, save, ingest, files, view, rowCount, remove, months, years, CATEGORIES, CATEGORY_LABELS };
+  return { load, save, ingest, files, view, rowCount, remove, removeCategory, months, years, CATEGORIES, CATEGORY_LABELS };
 })();
 </script>
 
@@ -8092,7 +8184,7 @@ const TxView = (() => {
       + '</table></div></div>';
   }
 
-  function sectionsHtml(files) {
+  function sectionsHtml(files, setId) {
     const byCat = new Map();
     for (const f of files) {
       if (!byCat.has(f.category)) byCat.set(f.category, []);
@@ -8103,9 +8195,19 @@ const TxView = (() => {
     return TxStore.CATEGORIES.filter(c => byCat.has(c)).map(c => {
       const list = byCat.get(c);
       const n = list.reduce((s, f) => s + f.rows.length, 0);
+      /* Whether the button appears is asked against the FULL, unfiltered
+         category (TxStore.files), not `list` - `list` can be narrowed by the
+         Filtered tab's period/column selection, and a file hidden by this
+         render's filter is still there to delete. Legacy (v1) rows can never
+         be removed this way, so a category holding only those gets no button. */
+      const removable = TxStore.files(setId).some(f => f.category === c && !f.legacy);
+      const delBtn = removable
+        ? '<button type="button" class="tx-cat-delete" data-del-cat="' + esc(c) + '" title="Delete all imported files in ' + esc(catLabel(c)) + '" aria-label="Delete all imported files in ' + esc(catLabel(c)) + '">🗑</button>'
+        : '';
       return '<section class="tx-cat-section">'
         + '<h3 class="tx-cat-label">' + esc(catLabel(c))
-        + '<span class="tx-cat-count">' + n + (n === 1 ? ' row' : ' rows') + '</span></h3>'
+        + '<span class="tx-cat-count">' + n + (n === 1 ? ' row' : ' rows') + '</span>'
+        + delBtn + '</h3>'
         + list.map(tableFor).join('')
         + '</section>';
     }).join('');
@@ -8115,7 +8217,7 @@ const TxView = (() => {
 
   function renderNormal(setId) {
     const files = TxStore.view(setId, { category: 'all' });
-    document.getElementById('tx-normal-sections').innerHTML = sectionsHtml(files);
+    document.getElementById('tx-normal-sections').innerHTML = sectionsHtml(files, setId);
   }
 
   /* ---------- Filtered ver. tab ---------- */
@@ -8202,7 +8304,7 @@ const TxView = (() => {
     renderColChips(available, state.columns);
 
     const shown = files.map(f => projectFile(f, state.columns)).filter(Boolean);
-    document.getElementById('tx-filtered-sections').innerHTML = sectionsHtml(shown);
+    document.getElementById('tx-filtered-sections').innerHTML = sectionsHtml(shown, setId);
     document.getElementById('tx-filtered-empty').classList.toggle('hidden', shown.length > 0);
   }
 
@@ -8245,6 +8347,34 @@ const TxView = (() => {
       TxFilter.toggleColumn(chip.dataset.col);
       render();
     });
+
+    /* Category delete button - lives inside a section header rendered by
+       sectionsHtml(), which both tabs share, so both containers get the same
+       delegated handler. Removes every non-legacy file in that category for
+       the active set; legacy rows are never touched (TxStore.removeCategory
+       never writes to the v1 key). */
+    function bindCatDelete(container) {
+      if (!container) return;
+      container.addEventListener('click', e => {
+        const b = e.target.closest('[data-del-cat]');
+        if (!b) return;
+        const setId = TxSets.activeId();
+        const cat = b.dataset.delCat;
+        const inCat = TxStore.files(setId).filter(f => f.category === cat);
+        const removable = inCat.filter(f => !f.legacy);
+        const fileCount = removable.length;
+        const rowCount = removable.reduce((s, f) => s + f.rows.length, 0);
+        const legacyRows = inCat.filter(f => f.legacy).reduce((s, f) => s + f.rows.length, 0);
+        let msg = 'Delete ' + fileCount + (fileCount === 1 ? ' file' : ' files')
+          + ' (' + rowCount + (rowCount === 1 ? ' row' : ' rows') + ') from ' + catLabel(cat) + '? This cannot be undone.';
+        if (legacyRows) msg += ' (' + legacyRows + ' previously-imported ' + (legacyRows === 1 ? 'row stays' : 'rows stay') + ' - legacy data can\'t be removed this way.)';
+        if (!confirm(msg)) return;
+        TxStore.removeCategory(setId, cat);
+        render();
+      });
+    }
+    bindCatDelete(document.getElementById('tx-normal-sections'));
+    bindCatDelete(document.getElementById('tx-filtered-sections'));
 
     const catBtn = document.getElementById('tx-cat-btn');
     const catMenu = document.getElementById('tx-cat-menu');
