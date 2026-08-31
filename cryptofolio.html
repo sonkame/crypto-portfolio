@@ -689,42 +689,73 @@ html:not(.view-home) #page-home { display: none; }
 #page-app .rm-row img { border-radius: 50%; }
 #page-app .rm-row .btn { margin-left: auto; }
 
-#page-app .cvs-files { display: flex; flex-direction: column; gap: 18px; padding: 18px 2px; }
-#page-app .cvs-files-group-label { font-size: 12px; font-weight: 700; letter-spacing: .04em; color: var(--muted); text-transform: uppercase; margin-bottom: 8px; }
-#page-app .cvs-file-row { display: flex; align-items: center; gap: 10px; padding: 9px 2px; border-bottom: 1px solid var(--border); }
-#page-app .cvs-file-row:last-child { border-bottom: none; }
-#page-app .cvs-file-icon { flex-shrink: 0; opacity: .8; }
-#page-app .cvs-file-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#page-app .cvs-file-size { color: var(--muted); font-size: 12.5px; margin-left: auto; flex-shrink: 0; }
-#page-app .cvs-file-remove { background: none; border: none; color: var(--muted); font-size: 16px; line-height: 1; cursor: pointer; padding: 4px; flex-shrink: 0; }
-#page-app .cvs-file-remove:hover { color: var(--red); }
-#page-app .cvs-file-result { font-size: 12px; flex-shrink: 0; }
+#page-app .csv-files { display: flex; flex-direction: column; gap: 18px; padding: 18px 2px; }
+#page-app .csv-files-group-label { font-size: 12px; font-weight: 700; letter-spacing: .04em; color: var(--muted); text-transform: uppercase; margin-bottom: 8px; }
+#page-app .csv-file-row { display: flex; align-items: center; gap: 10px; padding: 9px 2px; border-bottom: 1px solid var(--border); }
+#page-app .csv-file-row:last-child { border-bottom: none; }
+#page-app .csv-file-icon { flex-shrink: 0; opacity: .8; }
+#page-app .csv-file-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+#page-app .csv-file-size { color: var(--muted); font-size: 12.5px; margin-left: auto; flex-shrink: 0; }
+#page-app .csv-file-remove { background: none; border: none; color: var(--muted); font-size: 16px; line-height: 1; cursor: pointer; padding: 4px; flex-shrink: 0; }
+#page-app .csv-file-remove:hover { color: var(--red); }
+#page-app .csv-file-result { font-size: 12px; flex-shrink: 1; min-width: 0; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* Filtered ver. filter bar: Monthly/Yearly are button+.menu dropdowns (same
-   widget as cvs-add-btn above), Crypto/Network/Request Amount/Deposit are
-   independent multi-select toggles - a pill shape (not .segmented's joined
-   bar) since, unlike a timeframe picker, more than one can be active at once. */
-#page-app .tx-filterbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 16px; }
+/* Filtered ver. filter bar: Category/Monthly/Yearly are button+.menu
+   dropdowns (same widget as csv-add-btn above). Below it sits the column
+   toggle row - independent multi-select pills (not .segmented's joined bar)
+   since more than one can be active at once. Its chips are generated from
+   the columns in view rather than hardcoded, so they suit any CSV. */
+#page-app .tx-filterbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
 #page-app .tx-filter-val { color: var(--accent); font-weight: 700; margin-left: 6px; }
+#page-app .tx-filter-clear { color: var(--muted); margin-left: auto; }
+
+#page-app .tx-colbar { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 18px; padding-top: 2px; }
+#page-app .tx-colbar-label { flex-shrink: 0; font-size: 11.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); padding-top: 8px; }
+#page-app .tx-colbar-chips { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
 #page-app .tx-chip {
   background: transparent;
   border: 1px solid var(--border);
   color: var(--muted);
   border-radius: 999px;
-  padding: 7px 14px;
-  font-size: 13px;
+  padding: 5px 12px;
+  font-size: 12.5px;
   font-weight: 600;
   cursor: pointer;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
 }
 #page-app .tx-chip:hover { border-color: var(--accent); color: var(--text); }
 #page-app .tx-chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
-#page-app .tx-filter-clear { color: var(--muted); margin-left: auto; }
+
+/* Category sections. Each category is a labelled block holding one table per
+   imported file, since files in one category can have unrelated columns. */
+#page-app .tx-sections { display: flex; flex-direction: column; gap: 30px; }
+#page-app .tx-cat-section { display: flex; flex-direction: column; gap: 14px; }
+#page-app .tx-cat-label {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 13px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--text); margin: 0; padding-bottom: 8px; border-bottom: 2px solid var(--border);
+}
+#page-app .tx-cat-count { margin-left: auto; font-size: 11.5px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--muted); }
+#page-app .tx-file-block { display: flex; flex-direction: column; gap: 6px; }
+#page-app .tx-file-caption { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); padding: 0 2px; }
+#page-app .tx-file-title { font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+#page-app .tx-file-count { margin-left: auto; flex-shrink: 0; }
+#page-app .tx-legacy-tag,
+#page-app .tx-nodate-tag { flex-shrink: 0; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 2px 7px; cursor: help; }
+#page-app .tx-nodate-tag { color: var(--yellow, #e0b341); border-color: currentColor; }
 
 /* Ledger tables: full precision amounts need digits to line up like a
-   ledger, which .data-table's default numeric styling doesn't guarantee. */
-#page-app .tx-ledger-table td.num, #page-app .tx-ledger-table th.num { font-variant-numeric: tabular-nums; }
-#page-app .tx-totals-row td { font-weight: 700; background: var(--bg-3); border-top: 2px solid var(--border); }
+   ledger, which .data-table's default numeric styling doesn't guarantee.
+   An arbitrary CSV can be far wider than the viewport, so each table scrolls
+   inside its own wrapper (the page itself has overflow-x hidden) and cells
+   stay on one line rather than wrapping into unreadable stacks. */
+#page-app .tx-ledger-table { font-variant-numeric: tabular-nums; }
+#page-app .tx-ledger-table td, #page-app .tx-ledger-table th { white-space: nowrap; }
+#page-app .tx-file-block .table-wrap { overflow-x: auto; }
 #page-app .np-step { display: flex; flex-direction: column; gap: 14px; }
 #page-app .np-step h3 { margin-bottom: 2px; }
 #page-app .np-option {
@@ -2241,7 +2272,7 @@ if (VIEW === 'home') {
     <nav class="tabs">
       <button class="tab active" data-view="market">Market</button>
       <button class="tab" data-view="portfolio">My Portfolio</button>
-      <button class="tab" data-view="transactions">CVS Transactions</button>
+      <button class="tab" data-view="transactions">CSV Transactions</button>
       <button class="tab" data-view="bubbles">Bubbles</button>
       <button class="tab" data-view="gallery">Gallery</button>
     </nav>
@@ -2464,35 +2495,35 @@ if (VIEW === 'home') {
     </div>
   </section>
 
-  <!-- CVS TRANSACTIONS VIEW -->
+  <!-- CSV TRANSACTIONS VIEW -->
   <!-- Reuses the portfolio view's classes/styling, trimmed per spec: no
-       Analytics sub-tab, no 24h-change or Top-Performer cards, CVS-file
+       Analytics sub-tab, no 24h-change or Top-Performer cards, CSV-file
        actions instead of add/remove coin. TxSets (transactions.js) owns tab
        management and file picking; turning a picked CSV into transaction
-       rows is still to be specified. Own id namespace (cvs-*) so nothing
+       rows is still to be specified. Own id namespace (csv-*) so nothing
        collides with the portfolio view. -->
   <section id="view-transactions" class="view">
     <!-- transaction-set selector tabs -->
     <div class="pf-tabs-row">
-      <div class="pf-tabs" id="cvs-tabs"><!-- rendered by TxSets.renderTabs --></div>
-      <button class="pf-tab pf-new" id="cvs-new-btn">+ <span data-i18n="New Transaction">New Transaction</span></button>
+      <div class="pf-tabs" id="csv-tabs"><!-- rendered by TxSets.renderTabs --></div>
+      <button class="pf-tab pf-new" id="csv-new-btn">+ <span data-i18n="New Transaction">New Transaction</span></button>
     </div>
 
     <!-- title + actions -->
     <div class="pf-head">
       <div class="pf-title">
-        <span class="pf-title-icon" id="cvs-title-icon">⭐</span>
-        <h2 id="cvs-title-name" data-i18n="My Transactions">My Transactions</h2>
+        <span class="pf-title-icon" id="csv-title-icon">⭐</span>
+        <h2 id="csv-title-name" data-i18n="My Transactions">My Transactions</h2>
       </div>
       <div class="pf-head-right">
-        <div class="pf-actions" id="cvs-actions">
+        <div class="pf-actions" id="csv-actions">
           <!-- Import-source picker. Each entry opens the OS file browser
                (filtered to .csv) via the hidden input below; parsing the
                picked file into transaction rows is a separate, unspecified
                step - for now it's just tracked and listed per source. -->
           <div class="menu-wrap">
-            <button class="btn" id="cvs-add-btn" aria-haspopup="true" aria-expanded="false">＋ <span data-i18n="Add CVS file">Add CVS file</span></button>
-            <div class="menu hidden" id="cvs-add-menu">
+            <button class="btn" id="csv-add-btn" aria-haspopup="true" aria-expanded="false">＋ <span data-i18n="Add CSV file">Add CSV file</span></button>
+            <div class="menu hidden" id="csv-add-menu">
               <button data-src="futures">＋ <span data-i18n="Future Trade history">Future Trade history</span></button>
               <button data-src="deposit">＋ <span data-i18n="Deposit History">Deposit History</span></button>
               <button data-src="withdraw">＋ <span data-i18n="Withdraw History">Withdraw History</span></button>
@@ -2503,12 +2534,12 @@ if (VIEW === 'home') {
             <!-- .xlsx as well as .csv: the exchanges these come from (MEXC and
                  friends) export .xlsx by default, so a csv-only filter would
                  grey out the very file the user is trying to import. -->
-            <input type="file" id="cvs-file-input" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" multiple hidden>
+            <input type="file" id="csv-file-input" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" multiple hidden>
           </div>
-          <button class="btn" id="cvs-remove-btn">− <span data-i18n="Remove CVS file">Remove CVS file</span></button>
+          <button class="btn" id="csv-remove-btn">− <span data-i18n="Remove CSV file">Remove CSV file</span></button>
           <div class="menu-wrap">
-            <button class="btn icon" id="cvs-menu-btn" aria-label="Transactions menu">⋮</button>
-            <div class="menu hidden" id="cvs-menu">
+            <button class="btn icon" id="csv-menu-btn" aria-label="Transactions menu">⋮</button>
+            <div class="menu hidden" id="csv-menu">
               <button data-act="rename">✏️ <span data-i18n="Rename">Rename</span></button>
               <button data-act="delete" class="danger">🗑 <span data-i18n="Delete">Delete</span></button>
             </div>
@@ -2520,12 +2551,12 @@ if (VIEW === 'home') {
     <!-- summary cards: only Current Balance + Total Profit/Loss per spec -->
     <div class="pf-summary">
       <div class="card">
-        <span class="card-value" id="cvs-total">$0.00</span>
+        <span class="card-value" id="csv-total">$0.00</span>
         <span class="card-label" data-i18n="Current Balance">Current Balance</span>
       </div>
       <div class="card">
-        <span class="card-value" id="cvs-pl">—</span>
-        <span class="card-label"><span data-i18n="Total Profit / Loss">Total Profit / Loss</span> <span id="cvs-pl-pct"></span></span>
+        <span class="card-value" id="csv-pl">—</span>
+        <span class="card-label"><span data-i18n="Total Profit / Loss">Total Profit / Loss</span> <span id="csv-pl-pct"></span></span>
       </div>
     </div>
 
@@ -2537,32 +2568,31 @@ if (VIEW === 'home') {
 
     <!-- NORMAL PANEL: every imported row, all columns, newest first -->
     <div class="pf-panel active" id="tx-panel-normal">
-      <p id="cvs-empty" class="empty"><span data-i18n="No transactions yet — click “＋ Add CVS file” to import your crypto or stocks.">No transactions yet — click “＋ Add CVS file” to import your crypto or stocks.</span><br><small data-i18n="Your transactions are stored locally in this browser only.">Your transactions are stored locally in this browser only.</small></p>
+      <p id="csv-empty" class="empty"><span data-i18n="No transactions yet — click “＋ Add CSV file” to import your crypto or stocks.">No transactions yet — click “＋ Add CSV file” to import your crypto or stocks.</span><br><small data-i18n="Your transactions are stored locally in this browser only.">Your transactions are stored locally in this browser only.</small></p>
       <!-- Picked-file confirmation for this session, grouped by import
            source, with the parse+ingest result per file. Not persisted:
            File objects can't survive a reload, so this list resets on
            refresh (same as it would need re-picking anyway) - the ledger
            tables below are the persisted source of truth. -->
-      <div id="cvs-files" class="cvs-files hidden"></div>
-      <div class="table-wrap table-wrap--flush hidden" id="tx-normal-wrap">
-        <table class="data-table tx-ledger-table" id="tx-normal-table">
-          <thead>
-            <tr>
-              <th data-i18n="Time/date">Time/date</th>
-              <th data-i18n="Crypto">Crypto</th>
-              <th data-i18n="Network">Network</th>
-              <th class="num" data-i18n="Request Amount">Request Amount</th>
-              <th class="num" data-i18n="Deposit">Deposit</th>
-            </tr>
-          </thead>
-          <tbody id="tx-normal-body"></tbody>
-        </table>
-      </div>
+      <div id="csv-files" class="csv-files hidden"></div>
+      <!-- One section per category, one table per imported file inside it.
+           Two files in the same category can come from different exchanges
+           with completely different columns, so they cannot share a <thead> -
+           each file renders its own header, exactly as the CSV had it. -->
+      <div id="tx-normal-sections" class="tx-sections"></div>
     </div>
 
     <!-- FILTERED VER. PANEL -->
     <div class="pf-panel" id="tx-panel-filtered">
       <div class="tx-filterbar" id="tx-filterbar">
+        <!-- Category picker. Its options are the four import categories plus
+             "All CSV data", which is a view over every category rather than
+             somewhere a file can be imported into - that's why it is absent
+             from the "＋ Add CSV file" menu. -->
+        <div class="menu-wrap">
+          <button class="btn small" id="tx-cat-btn" aria-haspopup="true" aria-expanded="false"><span data-i18n="Category">Category</span><span class="tx-filter-val" id="tx-cat-val"></span></button>
+          <div class="menu hidden" id="tx-cat-menu"></div>
+        </div>
         <div class="menu-wrap">
           <button class="btn small" id="tx-month-btn" aria-haspopup="true" aria-expanded="false"><span data-i18n="Monthly">Monthly</span><span class="tx-filter-val" id="tx-month-val"></span></button>
           <div class="menu hidden" id="tx-month-menu"></div>
@@ -2571,20 +2601,23 @@ if (VIEW === 'home') {
           <button class="btn small" id="tx-year-btn" aria-haspopup="true" aria-expanded="false"><span data-i18n="Yearly">Yearly</span><span class="tx-filter-val" id="tx-year-val"></span></button>
           <div class="menu hidden" id="tx-year-menu"></div>
         </div>
-        <button class="tx-chip" data-toggle="crypto"><span data-i18n="Crypto">Crypto</span></button>
-        <button class="tx-chip" data-toggle="network"><span data-i18n="Network">Network</span></button>
-        <button class="tx-chip" data-toggle="requestAmount"><span data-i18n="Request Amount">Request Amount</span></button>
-        <button class="tx-chip" data-toggle="deposit"><span data-i18n="Deposit">Deposit</span></button>
+        <!-- The old Crypto/Network/Request Amount/Deposit chips lived here.
+             They toggled columns of a fixed five-column schema that no longer
+             exists now that every file keeps its own columns, so they were
+             removed rather than left as no-ops. -->
         <button class="btn small tx-filter-clear" id="tx-filter-clear-btn"><span data-i18n="Clear">Clear</span></button>
       </div>
-      <p class="empty hidden" id="tx-filtered-empty"><span data-i18n="No transactions match this filter.">No transactions match this filter.</span></p>
-      <div class="table-wrap table-wrap--flush hidden" id="tx-filtered-wrap">
-        <table class="data-table tx-ledger-table" id="tx-filtered-table">
-          <thead id="tx-filtered-head"></thead>
-          <tbody id="tx-filtered-body"></tbody>
-          <tfoot id="tx-filtered-foot"></tfoot>
-        </table>
+      <!-- Column toggles. Built at render time from the columns actually
+           present in the current view, not from a fixed schema, so they work
+           for any CSV: on the legacy five-column data these come out as
+           Crypto / Network / Request Amount / Deposit exactly as before.
+           None active = show every column. -->
+      <div class="tx-colbar hidden" id="tx-colbar">
+        <span class="tx-colbar-label" data-i18n="Columns">Columns</span>
+        <div class="tx-colbar-chips" id="tx-col-chips"></div>
       </div>
+      <p class="empty hidden" id="tx-filtered-empty"><span data-i18n="No transactions match this filter.">No transactions match this filter.</span></p>
+      <div id="tx-filtered-sections" class="tx-sections"></div>
     </div>
   </section>
 
@@ -6904,8 +6937,8 @@ const Backup = (() => {
     'cryptofolio.portfolios.v1', // portfolios, holdings, full transaction ledger
     'cryptofolio.holdings.v1',   // pre-migration store; kept so an old backup still restores
     'cryptofolio.gallery.v1',    // saved sites incl. their compressed screenshots
-    'cryptofolio.txsets.v1',     // CVS Transactions tab set (names/icons - not yet the import itself)
-    'cryptofolio.cvstx.v1',      // the CVS Transactions ledger itself (imported rows, per set)
+    'cryptofolio.txsets.v1',     // CSV Transactions tab set (names/icons - not yet the import itself)
+    'cryptofolio.cvstx.v1',      // the CSV Transactions ledger itself (imported rows, per set)
     'cryptofolio.i18n.lang',     // chosen language
   ];
 
@@ -7070,10 +7103,10 @@ const Backup = (() => {
 
 <script>
 /* ==================== transactions.js ====================
-   Tab management for the CVS Transactions view, plus picking CSV files per
+   Tab management for the CSV Transactions view, plus picking CSV files per
    set/source. Mirrors the portfolio tab system - a persisted list of named
    sets, one active, with New / Rename / Delete - but in its own store and
-   id namespace (cvs-* / txsets). Turning a picked file into transaction
+   id namespace (csv-* / txsets). Turning a picked file into transaction
    rows (the table, the summary numbers) is still to be built; this only
    makes "New Transaction" behave like
    "New Portfolio": create a tab, select it, rename/delete it. */
@@ -7095,7 +7128,7 @@ const TxSets = (() => {
      goes back to empty - it's a "here's what just happened" strip, not the
      source of truth. */
   let filesBySet = {};
-  let pendingSource = null;
+  let pendingCategory = null;
 
   function filesFor(setId) {
     if (!filesBySet[setId]) filesBySet[setId] = { futures: [], deposit: [], withdraw: [], spot: [] };
@@ -7120,7 +7153,7 @@ const TxSets = (() => {
   function active() { return store.sets.find(s => s.id === store.activeId) || store.sets[0]; }
 
   function renderTabs() {
-    document.getElementById('cvs-tabs').innerHTML = store.sets.map(s =>
+    document.getElementById('csv-tabs').innerHTML = store.sets.map(s =>
       '<button class="pf-tab' + (s.id === store.activeId ? ' active' : '') + '" data-tid="' + esc(s.id) + '">'
       + '<span class="pf-tab-icon">' + esc(s.icon || '⭐') + '</span>' + esc(s.name) + '</button>'
     ).join('');
@@ -7128,19 +7161,19 @@ const TxSets = (() => {
 
   function renderHead() {
     const s = active();
-    document.getElementById('cvs-title-icon').textContent = s.icon || '⭐';
-    document.getElementById('cvs-title-name').textContent = s.name;
+    document.getElementById('csv-title-icon').textContent = s.icon || '⭐';
+    document.getElementById('csv-title-name').textContent = s.name;
     // Can't delete the last/default set, same rule as the portfolio's default.
-    const del = document.querySelector('#cvs-menu button[data-act="delete"]');
+    const del = document.querySelector('#csv-menu button[data-act="delete"]');
     if (del) del.classList.toggle('hidden', s.id === DEFAULT_ID);
   }
 
   function resultBadge(r) {
     if (!r) return '';
-    if (r.error) return '<span class="cvs-file-result down" title="' + esc(r.error) + '">⚠ ' + esc(r.error) + '</span>';
+    if (r.error) return '<span class="csv-file-result down" title="' + esc(r.error) + '">⚠ ' + esc(r.error) + '</span>';
     let text = '+' + r.added + (r.added === 1 ? ' row' : ' rows');
     if (r.skipped) text += ', ' + r.skipped + ' already imported';
-    return '<span class="cvs-file-result up">' + esc(text) + '</span>';
+    return '<span class="csv-file-result up">' + esc(text) + '</span>';
   }
 
   function renderFiles() {
@@ -7154,20 +7187,20 @@ const TxSets = (() => {
     // been imported for this set is a persisted fact - drive the empty state
     // off TxStore so it stays correct across a reload, not off this session's
     // (possibly empty) picks.
-    const hasData = typeof TxStore !== 'undefined' && TxStore.all(setId).length > 0;
-    document.getElementById('cvs-empty').classList.toggle('hidden', hasData);
-    const wrap = document.getElementById('cvs-files');
+    const hasData = typeof TxStore !== 'undefined' && TxStore.rowCount(setId) > 0;
+    document.getElementById('csv-empty').classList.toggle('hidden', hasData);
+    const wrap = document.getElementById('csv-files');
     wrap.classList.toggle('hidden', groups.length === 0);
     wrap.innerHTML = groups.map(g =>
-      '<div class="cvs-files-group">'
-      + '<div class="cvs-files-group-label">' + esc(SOURCE_LABELS[g.src]) + '</div>'
+      '<div class="csv-files-group">'
+      + '<div class="csv-files-group-label">' + esc(SOURCE_LABELS[g.src]) + '</div>'
       + g.list.map((f, i) =>
-        '<div class="cvs-file-row">'
-        + '<span class="cvs-file-icon">📄</span>'
-        + '<span class="cvs-file-name" title="' + esc(f.name) + '">' + esc(f.name) + '</span>'
-        + '<span class="cvs-file-size">' + esc(fmtBytes(f.size)) + '</span>'
+        '<div class="csv-file-row">'
+        + '<span class="csv-file-icon">📄</span>'
+        + '<span class="csv-file-name" title="' + esc(f.name) + '">' + esc(f.name) + '</span>'
+        + '<span class="csv-file-size">' + esc(fmtBytes(f.size)) + '</span>'
         + resultBadge(f.result)
-        + '<button type="button" class="cvs-file-remove" data-remove-src="' + esc(g.src) + '" data-remove-idx="' + i + '" aria-label="Remove ' + esc(f.name) + '">×</button>'
+        + '<button type="button" class="csv-file-remove" data-remove-src="' + esc(g.src) + '" data-remove-idx="' + i + '" aria-label="Remove ' + esc(f.name) + '">×</button>'
         + '</div>'
       ).join('')
       + '</div>'
@@ -7220,54 +7253,54 @@ const TxSets = (() => {
   }
 
   function init() {
-    const tabs = document.getElementById('cvs-tabs');
+    const tabs = document.getElementById('csv-tabs');
     if (!tabs) return;
     tabs.addEventListener('click', e => {
       const b = e.target.closest('.pf-tab[data-tid]');
       if (!b) return;
       store.activeId = b.dataset.tid; save(); render();
     });
-    document.getElementById('cvs-new-btn').addEventListener('click', () => showModal('create'));
+    document.getElementById('csv-new-btn').addEventListener('click', () => showModal('create'));
 
     /* Import-source dropdown. Picking a source opens the OS file browser via
        the hidden <input type="file">, filtered to .csv - parsing the picked
        file(s) into transactions is a separate step, not specified yet. */
-    const addBtn = document.getElementById('cvs-add-btn');
-    const addMenu = document.getElementById('cvs-add-menu');
-    const fileInput = document.getElementById('cvs-file-input');
+    const addBtn = document.getElementById('csv-add-btn');
+    const addMenu = document.getElementById('csv-add-menu');
+    const fileInput = document.getElementById('csv-file-input');
     addBtn.addEventListener('click', e => {
       e.stopPropagation();
       const open = addMenu.classList.toggle('hidden') === false;
       addBtn.setAttribute('aria-expanded', String(open));
-      document.getElementById('cvs-menu').classList.add('hidden'); // never both open at once
+      document.getElementById('csv-menu').classList.add('hidden'); // never both open at once
     });
     addMenu.addEventListener('click', e => {
       const b = e.target.closest('button[data-src]');
       if (!b) return;
-      pendingSource = b.dataset.src;
+      pendingCategory = b.dataset.src;
       addMenu.classList.add('hidden');
       addBtn.setAttribute('aria-expanded', 'false');
       fileInput.click(); // native OS file browser, scoped to this machine's files
     });
     fileInput.addEventListener('change', async () => {
-      if (pendingSource && fileInput.files.length) {
+      if (pendingCategory && fileInput.files.length) {
         const setId = active().id;
-        const source = pendingSource;
+        const category = pendingCategory;
         const picked = Array.from(fileInput.files);
         // Each picked file is independent - parse+ingest one at a time so a
         // bad file in a multi-select doesn't block the good ones, and each
         // gets its own result badge.
         for (const f of picked) {
           const parsed = await TxParse.file(f);
-          const result = TxStore.ingest(parsed, source, f.name, setId);
-          filesFor(setId)[source].push({ name: f.name, size: f.size, result });
+          const result = TxStore.ingest(parsed, category, f.name, setId);
+          filesFor(setId)[category].push({ name: f.name, size: f.size, result });
         }
         render(); // re-render as a whole: ledger + file strip + empty state all depend on the new data
       }
-      pendingSource = null;
+      pendingCategory = null;
       fileInput.value = ''; // otherwise re-picking the same file fires no 'change'
     });
-    document.getElementById('cvs-files').addEventListener('click', e => {
+    document.getElementById('csv-files').addEventListener('click', e => {
       const b = e.target.closest('[data-remove-src]');
       if (!b) return;
       const setId = active().id;
@@ -7276,22 +7309,22 @@ const TxSets = (() => {
       render();
     });
 
-    document.getElementById('cvs-menu-btn').addEventListener('click', e => {
+    document.getElementById('csv-menu-btn').addEventListener('click', e => {
       e.stopPropagation();
-      document.getElementById('cvs-menu').classList.toggle('hidden');
+      document.getElementById('csv-menu').classList.toggle('hidden');
       addMenu.classList.add('hidden');
       addBtn.setAttribute('aria-expanded', 'false');
     });
-    document.getElementById('cvs-menu').addEventListener('click', e => {
+    document.getElementById('csv-menu').addEventListener('click', e => {
       const b = e.target.closest('button[data-act]');
       if (!b) return;
-      document.getElementById('cvs-menu').classList.add('hidden');
+      document.getElementById('csv-menu').classList.add('hidden');
       if (b.dataset.act === 'rename') showModal('rename');
       else if (b.dataset.act === 'delete') del();
     });
     document.addEventListener('click', e => {
-      if (!e.target.closest('#cvs-menu-btn')) document.getElementById('cvs-menu').classList.add('hidden');
-      if (!e.target.closest('#cvs-add-btn') && !e.target.closest('#cvs-add-menu')) {
+      if (!e.target.closest('#csv-menu-btn')) document.getElementById('csv-menu').classList.add('hidden');
+      if (!e.target.closest('#csv-add-btn') && !e.target.closest('#csv-add-menu')) {
         addMenu.classList.add('hidden');
         addBtn.setAttribute('aria-expanded', 'false');
       }
@@ -7617,37 +7650,56 @@ const TxParse = (() => {
 <script>
 /* ==================== part-b-store.js (TxStore) ====================
    Canonical transaction ledger built on top of TxParse's {header, rows}
-   tables. Owns localStorage persistence, source->column mapping, dedup
-   ingestion, and read-side query/aggregation. No third-party libraries,
-   no ES modules (classic <script> IIFE, must run from file://). Never
-   throws from a public method — every path returns a result object;
-   failures surface via an `error` string, matching TxParse's design. */
+   tables. Owns localStorage persistence, category assignment, dedup
+   ingestion, and read-side queries. No third-party libraries, no ES
+   modules (classic <script> IIFE, must run from file://). Never throws
+   from a public method - every path returns a result object; failures
+   surface via an `error` string, matching TxParse's design.
+
+   v2 keeps each imported file WHOLE: its own header and its own rows,
+   exactly as parsed. There is no required-column check and no per-source
+   column mapping, so any CSV is accepted and rendered with its own
+   columns. v1 (five mapped columns flattened into one row list) is still
+   read, but read-only and never written, and is surfaced as one synthetic
+   file per category so the view layer only ever sees one shape. */
 const TxStore = (() => {
 
-  const KEY = 'cryptofolio.cvstx.v1';
+  const KEY = 'cryptofolio.cvstx.v2';
+  const KEY_V1 = 'cryptofolio.cvstx.v1'; // legacy ledger; read-only, never written
+
+  /* Import targets. 'all' is deliberately absent: it is a view across every
+     category, not a place a file can live, which is why it appears in the
+     filter dropdown but not in the "＋ Add CSV file" menu. */
+  const CATEGORIES = ['futures', 'deposit', 'withdraw', 'spot'];
+  const CATEGORY_LABELS = {
+    futures: 'Future Trade history',
+    deposit: 'Deposit History',
+    withdraw: 'Withdraw History',
+    spot: 'Trade Spot History',
+  };
 
   /* ---------- header matching ----------
-     Column names in real exports vary in case/whitespace and sometimes
-     carry a trailing '*' or a unit suffix like 'Amount(USDT)'. Matching
-     is done on a normalized, prefix basis rather than exact equality so
-     small header drift doesn't silently break a whole source. */
+     Only used to locate a date column for the Monthly/Yearly filters.
+     Nothing here can reject a file: an unmatched header just means the
+     file has no date column, which is a display fact, not an error. */
 
   // lowercase, collapse whitespace, drop a trailing '*', drop a trailing
-  // parenthetical/unit suffix e.g. 'Amount(USDT)' -> 'amount', 'Amount *' -> 'amount'
+  // parenthetical/unit suffix e.g. 'Filled Time(UTC-05:00)' -> 'filled time'.
+  // Leading commas are stripped too: at least one real export ships a broken
+  // quoted field in its header, so the column arrives literally named
+  // ',Position Closing Time(UTC-05:00)'. Only MATCHING is normalized - the
+  // header is still displayed exactly as the file wrote it.
   function normHeader(h) {
     return String(h || '')
       .trim()
       .toLowerCase()
+      .replace(/^[,\s]+/, '')
       .replace(/\*+\s*$/, '')
       .replace(/\([^)]*\)\s*$/, '')
       .replace(/\s+/g, ' ')
       .trim();
   }
 
-  // Find the index of the first header cell whose normalized form equals,
-  // or starts with, any of the normalized aliases (prefix match handles
-  // suffixes normHeader() didn't already strip, e.g. trailing units without
-  // parens). Returns -1 if none of the aliases match anything.
   function findColumn(header, aliases) {
     const normed = header.map(normHeader);
     const normAliases = aliases.map(normHeader);
@@ -7659,97 +7711,26 @@ const TxStore = (() => {
     return -1;
   }
 
-  /* ---------- SOURCES mapping table ----------
-     One entry per source. `required` lists the fields that MUST resolve to
-     a real column for the file to be recognized as this source (Time and
-     Crypto, at minimum — without those there's no record to build).
-     `amountField` + `amountAliases` are optional: when present, the
-     resolved column's value becomes that field on the record; the other
-     of requestAmount/deposit is always null. Sources with no amountField
-     (futures, spot) always store both as null, regardless of file content -
-     a wrong number in a tax tool is worse than a blank one. Adding a new
-     source's amount column later is a one-line `amountField`/`amountAliases`
-     addition, nothing structural. */
-  const SOURCES = {
-    withdraw: {
-      required: ['time', 'crypto'],
-      aliases: {
-        time: ['Time'],
-        crypto: ['Crypto'],
-        network: ['Network'],
-        status: ['Status'],
-        txid: ['TxID', 'Tx ID', 'Transaction ID'],
-      },
-      amountField: 'requestAmount',
-      amountAliases: ['Request Amount', 'Amount'],
-    },
-    deposit: {
-      required: ['time', 'crypto'],
-      aliases: {
-        time: ['Time'],
-        crypto: ['Crypto'],
-        network: ['Network'],
-        status: ['Status'],
-        txid: ['TxID', 'Tx ID', 'Transaction ID'],
-      },
-      amountField: 'deposit',
-      amountAliases: ['Deposit Amount', 'Amount'],
-    },
-    // No real export file exists yet for these two. Best-guess common header
-    // names for Time/Crypto/Network; amount columns intentionally omitted -
-    // requestAmount/deposit are always null for these sources (see above).
-    futures: {
-      required: ['time', 'crypto'],
-      aliases: {
-        time: ['Time', 'Date', 'Order Time', 'Trade Time'],
-        crypto: ['Crypto', 'Symbol', 'Pair', 'Contract'],
-        network: ['Network'],
-        status: ['Status'],
-        txid: ['TxID', 'Tx ID', 'Order ID', 'Transaction ID'],
-      },
-    },
-    spot: {
-      required: ['time', 'crypto'],
-      aliases: {
-        time: ['Time', 'Date', 'Order Time', 'Trade Time'],
-        crypto: ['Crypto', 'Symbol', 'Pair'],
-        network: ['Network'],
-        status: ['Status'],
-        txid: ['TxID', 'Tx ID', 'Order ID', 'Transaction ID'],
-      },
-    },
-  };
+  const TIME_ALIASES = [
+    'Filled Time', 'Time', 'Date', 'Order Time', 'Trade Time', 'Created Time',
+    'Create Time', 'Timestamp', 'Position Closing Time', 'Close Time', 'Updated Time',
+  ];
 
-  /* ---------- time parsing ----------
-     'YYYY-MM-DD HH:MM:SS', parsed component-by-component. Never fed to
-     `new Date(str)` - that string form's interpretation is JS-engine/
-     locale dependent and a UTC shift can silently move a transaction into
-     the wrong month, corrupting a tax total at a month boundary. */
-  const TIME_RE = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/;
-  function parseTimeRaw(s) {
-    const m = TIME_RE.exec(String(s || '').trim());
-    if (!m) return NaN;
-    const [, y, mo, d, h, mi, se] = m;
-    return Date.UTC(+y, +mo - 1, +d, +h, +mi, +se);
+  /* Pulls 'YYYY-MM' / 'YYYY' out of a cell for the period filters. Searched,
+     not anchored, so '2024-11-25 14:20:30' and ISO 'T' forms both work.
+     Deliberately never `new Date(str)`: that string form's interpretation is
+     JS-engine/locale dependent and a UTC shift can silently move a
+     transaction into the wrong month, corrupting a tax total at a boundary. */
+  const DATE_RE = /(\d{4})-(\d{2})-(\d{2})/;
+  function dateKeys(v) {
+    const m = DATE_RE.exec(String(v == null ? '' : v));
+    if (!m) return null;
+    return { ym: m[1] + '-' + m[2], y: m[1] };
   }
 
-  /* ---------- number parsing ----------
-     Values arrive as numeric-looking strings with full precision preserved
-     (e.g. "2664726.384"). Blank cells are "". Blank/unparseable -> null,
-     never 0/NaN - a real zero and "not applicable" are different facts
-     in a tax tool. */
-  function parseAmount(s) {
-    const t = String(s == null ? '' : s).trim();
-    if (t === '') return null;
-    const n = Number(t);
-    return Number.isFinite(n) ? n : null;
-  }
+  /* ---------- load / save ---------- */
 
-  /* ---------- load / save ----------
-     Matches TxSets' convention exactly: JSON.parse(localStorage.getItem)
-     guarded by try/catch with a fresh-default fallback, save() wrapped in
-     its own try/catch around setItem. */
-  function freshStore() { return { v: 1, sets: {} }; }
+  function freshStore() { return { v: 2, sets: {} }; }
 
   function load() {
     try {
@@ -7760,233 +7741,258 @@ const TxStore = (() => {
   }
   function save() { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch {} }
 
-  let store = load(); // { v:1, sets: { <setId>: [record, ...] } }
+  let store = load(); // { v:2, sets: { <setId>: [fileEntry, ...] } }
 
-  function setRows(setId) {
-    if (!store.sets[setId]) store.sets[setId] = [];
+  function setFiles(setId) {
+    if (!Array.isArray(store.sets[setId])) store.sets[setId] = [];
     return store.sets[setId];
+  }
+
+  /* ---------- legacy v1 ----------
+     The pre-v2 ledger is read and shown, never rewritten - renaming or
+     migrating its key would orphan rows the user already imported and no
+     longer has the source files for. Each category's v1 rows collapse into
+     one synthetic read-only file so the renderer needs no special case. */
+
+  const LEGACY_HEADER = ['Time/date', 'Crypto', 'Network', 'Request Amount', 'Deposit'];
+
+  function legacyFiles(setId) {
+    try {
+      const raw = JSON.parse(localStorage.getItem(KEY_V1));
+      const rows = raw && raw.sets && Array.isArray(raw.sets[setId]) ? raw.sets[setId] : null;
+      if (!rows || !rows.length) return [];
+      const byCat = new Map();
+      for (const r of rows) {
+        const cat = CATEGORIES.indexOf(r && r.source) > -1 ? r.source : 'futures';
+        if (!byCat.has(cat)) byCat.set(cat, []);
+        const cell = v => (v === null || v === undefined) ? '' : String(v);
+        byCat.get(cat).push([
+          cell(r.timeRaw), cell(r.crypto), cell(r.network),
+          cell(r.requestAmount), cell(r.deposit),
+        ]);
+      }
+      return Array.from(byCat.entries()).map(([category, rws]) => ({
+        fileId: 'legacy:' + category,
+        fileName: 'Previously imported',
+        category,
+        header: LEGACY_HEADER.slice(),
+        rows: rws,
+        timeIdx: 0,
+        legacy: true,
+      }));
+    } catch { return []; }
   }
 
   /* ---------- ingest ---------- */
 
-  function ingest(parsed, source, fileName, setId) {
+  function ingest(parsed, category, fileName, setId) {
     try {
       if (!parsed || parsed.error) {
         return { added: 0, skipped: 0, error: parsed && parsed.error ? parsed.error : 'No data to import.' };
       }
-      const def = SOURCES[source];
-      if (!def) {
-        return { added: 0, skipped: 0, error: "Unknown source '" + source + "'." };
+      if (CATEGORIES.indexOf(category) === -1) {
+        return { added: 0, skipped: 0, error: "Unknown category '" + category + "'." };
       }
-      const header = parsed.header || [];
-      const colIdx = {};
-      for (const field of Object.keys(def.aliases)) {
-        colIdx[field] = findColumn(header, def.aliases[field]);
+      const header = Array.isArray(parsed.header) ? parsed.header.slice() : [];
+      const incoming = Array.isArray(parsed.rows) ? parsed.rows : [];
+      if (!header.length && !incoming.length) {
+        return { added: 0, skipped: 0, error: 'That file has no readable rows.' };
       }
-      const missingRequired = def.required.filter(f => colIdx[f] === -1);
-      if (missingRequired.length) {
-        return {
-          added: 0, skipped: 0,
-          error: "Unrecognized file for source '" + source + "': found columns [" + header.join(', ') +
-            '], expected something matching ' + def.required.map(f => capitalize(f)).join('/') + '.',
+
+      const files = setFiles(setId);
+      const name = fileName || 'Untitled.csv';
+      /* One entry per (category, file name, header shape). Re-importing the
+         same export therefore lands on the same entry, which is what makes
+         the positional dedup below mean "already imported" rather than
+         "duplicate row". A same-named file with a different header is a
+         genuinely different report and gets its own entry. */
+      const sig = header.join(' ');
+      let entry = files.find(f => f.category === category && f.fileName === name && f.header.join(' ') === sig);
+      const isNew = !entry;
+      if (isNew) {
+        entry = {
+          fileId: 'f_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7),
+          fileName: name,
+          category,
+          header,
+          rows: [],
+          // No timeIdx here on purpose - it is derived from the header and so
+          // is resolved on read (see files()). Persisting it would freeze
+          // already-imported files on whatever the alias list looked like the
+          // day they were imported.
         };
+        files.push(entry);
       }
-      let amountIdx = -1;
-      if (def.amountField) amountIdx = findColumn(header, def.amountAliases);
 
-      const rows = setRows(setId);
-      const existingIds = new Set(rows.map(r => r.id));
-
+      /* Dedup is POSITIONAL - the row's index within its file - and never
+         row content or an order id. Real exports contain rows that are
+         byte-identical to each other (one order filled in several pieces of
+         the same size, in the same second) and rows that share an order id
+         across split fills. Keying on either drops those as "already
+         imported" and under-reports the ledger. Re-importing an unchanged
+         export still skips every row; a re-export that only grew appends
+         just its new tail. */
       let added = 0, skipped = 0;
-      const toAdd = [];
-      for (const row of (parsed.rows || [])) {
-        const timeRaw = (colIdx.time > -1 ? row[colIdx.time] : '') || '';
-        const crypto = (colIdx.crypto > -1 ? row[colIdx.crypto] : '') || '';
-        const network = colIdx.network > -1 ? (row[colIdx.network] || '') : '';
-        const status = colIdx.status > -1 ? (row[colIdx.status] || '') : '';
-        const txid = colIdx.txid > -1 ? (row[colIdx.txid] || '') : '';
-
-        let requestAmount = null, deposit = null;
-        if (def.amountField && amountIdx > -1) {
-          const amt = parseAmount(row[amountIdx]);
-          if (def.amountField === 'requestAmount') requestAmount = amt;
-          else if (def.amountField === 'deposit') deposit = amt;
-        }
-
-        const dedupAmount = requestAmount !== null ? requestAmount : (deposit !== null ? deposit : '');
-        const id = source + '|' + timeRaw + '|' + crypto + '|' + (txid || dedupAmount);
-
-        const record = {
-          id,
-          source,
-          time: parseTimeRaw(timeRaw),
-          timeRaw,
-          crypto,
-          network,
-          requestAmount,
-          deposit,
-          status,
-          txid,
-          fileName: fileName || '',
-        };
-
-        if (existingIds.has(id)) { skipped++; continue; }
-        existingIds.add(id);
-        toAdd.push(record);
+      for (let i = 0; i < incoming.length; i++) {
+        if (i < entry.rows.length) { skipped++; continue; }
+        entry.rows.push(Array.isArray(incoming[i]) ? incoming[i].slice() : [incoming[i]]);
         added++;
       }
 
-      if (added) {
-        rows.push(...toAdd);
-        save();
+      // A header-only file would otherwise leave an empty table behind.
+      if (!entry.rows.length) {
+        const idx = files.indexOf(entry);
+        if (idx > -1) files.splice(idx, 1);
       }
+      save();
       return { added, skipped, error: null };
     } catch (e) {
       return { added: 0, skipped: 0, error: 'Import failed: ' + (e && e.message || e) };
     }
   }
 
-  function capitalize(s) { return s.length ? s[0].toUpperCase() + s.slice(1) : s; }
-
   /* ---------- reads ---------- */
 
-  function all(setId) {
+  /* Legacy first, so previously-imported rows read as the older material.
+     timeIdx is resolved here rather than read from storage: it is derived
+     from the header, and deriving it on every read means a widened alias
+     list (or a fix to header normalization) immediately applies to files
+     that were imported long before it. */
+  function files(setId) {
     try {
-      return (store.sets[setId] || []).slice();
+      // legacyFiles() carries its own fixed timeIdx (its header is synthetic).
+      return legacyFiles(setId).concat(setFiles(setId).map(f => ({
+        ...f,
+        timeIdx: findColumn(f.header || [], TIME_ALIASES),
+      })));
     } catch { return []; }
+  }
+
+  function rowCount(setId) {
+    try { return files(setId).reduce((n, f) => n + f.rows.length, 0); } catch { return 0; }
   }
 
   function remove(setId, fileName) {
     try {
-      const rows = store.sets[setId];
-      if (!rows) return;
-      store.sets[setId] = rows.filter(r => r.fileName !== fileName);
+      const list = store.sets[setId];
+      if (!Array.isArray(list)) return;
+      store.sets[setId] = list.filter(f => f.fileName !== fileName);
       save();
     } catch { /* no-op on failure, matches never-throw contract */ }
   }
 
-  function distinctSorted(setId, keyFn) {
-    try {
-      const set = new Set();
-      for (const r of all(setId)) {
-        const v = keyFn(r);
-        if (v !== '' && v != null) set.add(v);
+  function periodKeys(setId) {
+    const ms = new Set(), ys = new Set();
+    for (const f of files(setId)) {
+      if (!(f.timeIdx > -1)) continue;
+      for (const cells of f.rows) {
+        const k = dateKeys(cells[f.timeIdx]);
+        if (!k) continue;
+        ms.add(k.ym); ys.add(k.y);
       }
-      return Array.from(set).sort();
+    }
+    return { months: Array.from(ms).sort(), years: Array.from(ys).sort() };
+  }
+  function months(setId) { try { return periodKeys(setId).months; } catch { return []; } }
+  function years(setId) { try { return periodKeys(setId).years; } catch { return []; } }
+
+  /* View model for both tabs: the files to draw, each already narrowed to
+     the rows that survive the period filter. Normal passes no filters and
+     gets everything; Filtered passes TxFilter's state.
+     opts: { category: 'all'|<category>, month: 'YYYY-MM'|null, year: 'YYYY'|null } */
+  function view(setId, opts) {
+    try {
+      const o = opts || {};
+      const category = o.category || 'all';
+      const month = o.month || null;
+      const year = o.year || null;
+
+      let list = files(setId);
+      if (category !== 'all') list = list.filter(f => f.category === category);
+
+      const out = [];
+      for (const f of list) {
+        let rows = f.rows;
+        /* A file with no recognizable date column is exempt from the period
+           filter rather than emptied by it - hiding rows a filter cannot
+           evaluate would silently shrink the ledger. `periodExempt` lets the
+           view say so on the file, otherwise an unfiltered table sitting
+           under a "Oct 2024" selection just reads as a broken filter. */
+        const exempt = !(f.timeIdx > -1);
+        if ((month || year) && !exempt) {
+          rows = rows.filter(cells => {
+            const k = dateKeys(cells[f.timeIdx]);
+            if (!k) return false;
+            return month ? k.ym === month : k.y === year;
+          });
+        }
+        if (!rows.length) continue;
+        out.push({
+          fileId: f.fileId, fileName: f.fileName, category: f.category,
+          header: f.header, rows, legacy: !!f.legacy,
+          periodExempt: exempt && !!(month || year),
+        });
+      }
+      return out;
     } catch { return []; }
   }
 
-  function months(setId) {
-    return distinctSorted(setId, r => (r.timeRaw || '').slice(0, 7));
-  }
-  function years(setId) {
-    return distinctSorted(setId, r => (r.timeRaw || '').slice(0, 4));
-  }
-  function cryptos(setId) {
-    return distinctSorted(setId, r => r.crypto);
-  }
-  function networks(setId) {
-    return distinctSorted(setId, r => r.network);
-  }
-
-  /* ---------- query ----------
-     filterState: { crypto, network, deposit, requestAmount: Boolean;
-                    month: 'YYYY-MM'|null; year: 'YYYY'|null }
-     See spec for the exact, already-resolved filtering/totals logic - it's
-     intentionally reproduced verbatim rather than redesigned, so behavior
-     matches a sibling TxFilter module this code never sees. */
-  function query(setId, filterState) {
-    try {
-      const state = filterState || {};
-      let rows = all(setId);
-
-      // Step 3 (period filter) is computed first and reused for totals,
-      // since totals are defined over the period-filtered set "before
-      // considering step 2's union".
-      let periodRows = rows;
-      if (state.month) {
-        periodRows = periodRows.filter(r => (r.timeRaw || '').slice(0, 7) === state.month);
-      } else if (state.year) {
-        periodRows = periodRows.filter(r => (r.timeRaw || '').slice(0, 4) === state.year);
-      }
-
-      // Step 2: row-type filter, applied on top of the period filter.
-      let out = periodRows;
-      const depOn = !!state.deposit, reqOn = !!state.requestAmount;
-      if (depOn || reqOn) {
-        if (depOn && reqOn) {
-          out = out.filter(r => r.deposit !== null || r.requestAmount !== null);
-        } else if (depOn) {
-          out = out.filter(r => r.deposit !== null);
-        } else if (reqOn) {
-          out = out.filter(r => r.requestAmount !== null);
-        }
-      }
-
-      // Step 5: sort ascending by timeRaw (lexicographic == chronological
-      // for 'YYYY-MM-DD HH:MM:SS'). Never sort by the epoch `time` field.
-      out = out.slice().sort((a, b) => (a.timeRaw < b.timeRaw ? -1 : a.timeRaw > b.timeRaw ? 1 : 0));
-
-      // Step 7: totals only when deposit toggle is on AND a period is set;
-      // grouped from periodRows (deposit !== null), independent of the
-      // requestAmount toggle / step 2's union.
-      let totalsByCrypto = [];
-      if (depOn && (state.month || state.year)) {
-        const byCrypto = new Map();
-        for (const r of periodRows) {
-          if (r.deposit === null) continue;
-          const entry = byCrypto.get(r.crypto) || { crypto: r.crypto, total: 0, count: 0 };
-          entry.total += r.deposit;
-          entry.count += 1;
-          byCrypto.set(r.crypto, entry);
-        }
-        totalsByCrypto = Array.from(byCrypto.values()).sort((a, b) => a.crypto < b.crypto ? -1 : a.crypto > b.crypto ? 1 : 0);
-      }
-
-      return { rows: out, totalsByCrypto };
-    } catch (e) {
-      return { rows: [], totalsByCrypto: [] };
-    }
-  }
-
-  return { load, save, ingest, all, remove, months, years, cryptos, networks, query, SOURCES };
+  return { load, save, ingest, files, view, rowCount, remove, months, years, CATEGORIES, CATEGORY_LABELS };
 })();
 </script>
 
 <script>
 /* ==================== part-d-filter.js (TxFilter) ====================
-   Pure state machine behind the "Filtered ver." filter bar: six filters
-   (Monthly, Yearly, Crypto, Deposit, Request Amount, Network) that decide
-   which rows and columns are shown, plus a per-crypto totals-row condition.
-   Zero DOM. Holds its own internal singleton state, like this codebase's
-   other small state-machine modules. Filter state is global (not per
-   transaction-set) by design. */
+   Pure state machine behind the "Filtered ver." filter bar: Category,
+   Monthly and Yearly. Zero DOM. Holds its own internal singleton state,
+   like this codebase's other small state-machine modules. Filter state is
+   global (not per transaction-set) by design.
+
+   The column toggles are no longer a fixed Crypto/Network/Request Amount/
+   Deposit set - every file keeps its own columns now, so the chips are
+   generated from whatever is in view and this module just holds the chosen
+   column NAMES. An empty list means "show every column", which is what the
+   old all-chips-off state meant too. Row filtering itself lives in
+   TxStore.view(); column projection lives in TxView. */
 const TxFilter = (() => {
 
   /* ---------- internal singleton state ---------- */
 
   const baseline = () => ({
-    crypto: false,
-    network: false,
-    deposit: false,
-    requestAmount: false,
-    month: null,   // 'YYYY-MM' | null
-    year: null,    // 'YYYY' | null
+    category: 'all', // 'all' | 'futures' | 'deposit' | 'withdraw' | 'spot'
+    month: null,     // 'YYYY-MM' | null
+    year: null,      // 'YYYY' | null
+    columns: [],     // column header names to show; [] = all of them
   });
 
   let _state = baseline();
 
   /* ---------- public API ---------- */
 
-  // Returns a copy so callers can't mutate internals directly.
+  // Returns a copy so callers can't mutate internals directly - `columns` is
+  // copied too, otherwise the caller holds a live reference to the array.
   function state() {
-    return { ..._state };
+    return { ..._state, columns: _state.columns.slice() };
   }
 
-  // name is one of 'crypto' | 'network' | 'deposit' | 'requestAmount'. Flips that boolean.
-  function toggle(name) {
-    if (!(name in _state) || typeof _state[name] !== 'boolean') return;
-    _state[name] = !_state[name];
+  // Flips one column name on/off. Names are the header's own text.
+  function toggleColumn(name) {
+    const i = _state.columns.indexOf(name);
+    if (i > -1) _state.columns.splice(i, 1);
+    else _state.columns.push(name);
+  }
+
+  /* Drops any selected column that is no longer present in the view (e.g.
+     after switching category). Without this, a stale selection could hide
+     every file while its chip isn't even on screen to switch back off. */
+  function retainColumns(available) {
+    const keep = new Set(available);
+    _state.columns = _state.columns.filter(c => keep.has(c));
+  }
+
+  // Anything falsy means "All CSV data" - the view across every category.
+  function setCategory(c) {
+    _state.category = c || 'all';
   }
 
   // Setting a month always sets year to that month's year too (a month implies
@@ -8006,79 +8012,12 @@ const TxFilter = (() => {
     }
   }
 
-  // Resets to baseline (all false/null).
+  // Resets to baseline (all categories, no period, every column).
   function clear() {
     _state = baseline();
   }
 
-  // Fixed-order subset of ['time','crypto','network','requestAmount','deposit'].
-  function visibleColumns() {
-    const { crypto, network, deposit, requestAmount, month, year } = _state;
-    const anyActive = crypto || network || deposit || requestAmount || !!month || !!year;
-
-    if (!anyActive) {
-      return ['time', 'crypto', 'network', 'requestAmount', 'deposit'];
-    }
-
-    const cols = ['time', 'crypto'];
-    if (network) cols.push('network');
-    if (requestAmount) cols.push('requestAmount');
-    if (deposit) cols.push('deposit');
-    return cols;
-  }
-
-  // True iff the deposit toggle is on AND (month or year) is set.
-  function showTotals() {
-    return _state.deposit && (!!_state.month || !!_state.year);
-  }
-
-  // Takes a full record array and returns a NEW filtered + sorted array
-  // reflecting the current internal state. Never mutates the input array or
-  // its records.
-  function apply(records) {
-    const { deposit, requestAmount, month, year } = _state;
-
-    let out = records.filter((r) => {
-      // 1. Row-type filter (only applies if deposit and/or requestAmount is on).
-      if (deposit && requestAmount) {
-        // Union: either field non-null. No record has both fields non-null
-        // simultaneously, so AND here would silently zero out results.
-        if (!(r.deposit !== null || r.requestAmount !== null)) return false;
-      } else if (deposit) {
-        if (r.deposit === null) return false;
-      } else if (requestAmount) {
-        if (r.requestAmount === null) return false;
-      }
-      // Neither on => no row-type filtering.
-
-      // 2. Period filter: month takes precedence over year if both are set
-      //    (setMonth/setYear keep them coherent, so this is mostly a
-      //    tie-breaker for direct state edits). String comparison only —
-      //    never new Date(timeRaw), which is locale/engine dependent and
-      //    can shift a row across a month/year boundary.
-      if (month) {
-        if (r.timeRaw.slice(0, 7) !== month) return false;
-      } else if (year) {
-        if (r.timeRaw.slice(0, 4) !== year) return false;
-      }
-
-      // 3. crypto / network toggles never filter rows, only visibleColumns().
-
-      return true;
-    });
-
-    // Copy each record shallowly so the caller's records are never mutated,
-    // then sort ascending by timeRaw (lexicographic === chronological for
-    // 'YYYY-MM-DD HH:MM:SS').
-    out = out.map((r) => ({ ...r }));
-    out.sort((a, b) => (a.timeRaw < b.timeRaw ? -1 : a.timeRaw > b.timeRaw ? 1 : 0));
-
-    // A period/toggle combo that matches zero rows is a valid [] result;
-    // internal state is never auto-cleared here.
-    return out;
-  }
-
-  return { state, toggle, setMonth, setYear, clear, visibleColumns, showTotals, apply };
+  return { state, setCategory, setMonth, setYear, toggleColumn, retainColumns, clear };
 })();
 </script>
 
@@ -8087,47 +8026,96 @@ const TxFilter = (() => {
    HTML/CSS skeleton (see #view-transactions markup + its CSS) and the JS
    that fills it, owned together deliberately: a prior attempt split markup
    and renderer across two parallel agents and they drifted (renderer only
-   referenced a fraction of the markup's ids). Renders the Normal tab (every
-   imported row, all columns, newest first) and the Filtered ver. tab
-   (TxFilter-driven column set + TxStore-driven rows/totals), and hooks the
-   existing TxSets file-picker flow up to TxParse + TxStore so a picked file
-   actually gets parsed, ingested, and rendered. */
+   referenced a fraction of the markup's ids). Renders the Normal tab
+   (every category, every file, every row) and the Filtered ver. tab (the
+   same view narrowed by TxStore.view() to one category and/or one period),
+   and hooks the existing TxSets file-picker flow up to TxParse + TxStore so
+   a picked file actually gets parsed, ingested, and rendered.
+
+   Both tabs draw the same thing - a list of files, each with its own header
+   and its own rows - so they share sectionsHtml() and differ only in the
+   filter state handed to TxStore.view(). */
 const TxView = (() => {
 
   const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const COLUMN_LABELS = { time: 'Time/date', crypto: 'Crypto', network: 'Network', requestAmount: 'Request Amount', deposit: 'Deposit' };
-  const NUM_COLS = new Set(['requestAmount', 'deposit']);
+
+  // 'All CSV data' is a view over every category, not an import target, so it
+  // exists here and in the filter dropdown but never in the Add CSV menu.
+  const ALL_LABEL = 'All CSV data';
+
+  function catLabel(c) {
+    return c === 'all' ? ALL_LABEL : (TxStore.CATEGORY_LABELS[c] || c);
+  }
 
   function formatMonth(m) { // 'YYYY-MM' -> 'Nov 2025'
     return MONTH_NAMES[Number(m.slice(5, 7)) - 1] + ' ' + m.slice(0, 4);
   }
 
-  // Full precision, grouped integer part - never rounds away a significant
-  // digit (real holdings here run from 0.0001 to 24937648.72).
-  function fmtAmount(n) {
-    if (n === null || n === undefined || Number.isNaN(n)) return '—';
-    return n.toLocaleString('en-US', { maximumFractionDigits: 10 });
-  }
-  // null and '' (network is '' when absent) both mean "nothing to show" -
-  // rendering either as a blank cell reads as a bug, not as data.
+  // Cells are kept as the CSV's own strings - no number coercion. Re-formatting
+  // an arbitrary column would risk rounding a figure this tool has no schema
+  // for, and a wrong number in a tax tool is worse than an unstyled one.
+  // '' and null both mean "nothing here"; a blank cell reads as a bug.
   function cellText(v) {
     return (v === null || v === undefined || v === '') ? '—' : esc(String(v));
   }
 
-  /* ---------- Normal tab: every row, all columns, newest first ---------- */
+  /* ---------- shared rendering ---------- */
+
+  function tableFor(f) {
+    /* Column count is the widest of the header and any row, not just the
+       header: a malformed export can carry more cells than it declared
+       columns, and rendering only header.length would silently hide the
+       overflow. Extra columns get a blank heading rather than no cell. */
+    let cols = f.header.length;
+    for (const cells of f.rows) if (cells.length > cols) cols = cells.length;
+    return '<div class="tx-file-block">'
+      + '<div class="tx-file-caption">'
+      + '<span class="tx-file-title">' + esc(f.fileName) + '</span>'
+      + (f.legacy ? '<span class="tx-legacy-tag" title="Imported before this version; kept read-only">legacy</span>' : '')
+      + (f.periodExempt ? '<span class="tx-nodate-tag" title="This file has no recognizable date column, so the Monthly/Yearly filter cannot apply to it. All of its rows are shown rather than none.">no date column</span>' : '')
+      + '<span class="tx-file-count">' + f.rows.length + (f.rows.length === 1 ? ' row' : ' rows') + '</span>'
+      + '</div>'
+      + '<div class="table-wrap table-wrap--flush">'
+      + '<table class="data-table tx-ledger-table">'
+      + '<thead><tr>' + (() => {
+        let ths = '';
+        for (let i = 0; i < cols; i++) ths += '<th>' + cellText(f.header[i]) + '</th>';
+        return ths;
+      })() + '</tr></thead>'
+      + '<tbody>' + f.rows.map(cells => {
+        // Iterate the column count, not the row: a short or ragged row still
+        // lines up with its columns instead of shifting every cell after the gap.
+        let tds = '';
+        for (let i = 0; i < cols; i++) tds += '<td>' + cellText(cells[i]) + '</td>';
+        return '<tr>' + tds + '</tr>';
+      }).join('') + '</tbody>'
+      + '</table></div></div>';
+  }
+
+  function sectionsHtml(files) {
+    const byCat = new Map();
+    for (const f of files) {
+      if (!byCat.has(f.category)) byCat.set(f.category, []);
+      byCat.get(f.category).push(f);
+    }
+    // Fixed category order (the Add CSV menu's order), not insertion order, so
+    // sections don't reshuffle as files come and go.
+    return TxStore.CATEGORIES.filter(c => byCat.has(c)).map(c => {
+      const list = byCat.get(c);
+      const n = list.reduce((s, f) => s + f.rows.length, 0);
+      return '<section class="tx-cat-section">'
+        + '<h3 class="tx-cat-label">' + esc(catLabel(c))
+        + '<span class="tx-cat-count">' + n + (n === 1 ? ' row' : ' rows') + '</span></h3>'
+        + list.map(tableFor).join('')
+        + '</section>';
+    }).join('');
+  }
+
+  /* ---------- Normal tab: every category, every file, every row ---------- */
 
   function renderNormal(setId) {
-    const rows = TxStore.all(setId).sort((a, b) => (a.timeRaw < b.timeRaw ? 1 : a.timeRaw > b.timeRaw ? -1 : 0));
-    document.getElementById('tx-normal-wrap').classList.toggle('hidden', rows.length === 0);
-    document.getElementById('tx-normal-body').innerHTML = rows.map(r =>
-      '<tr>'
-      + '<td>' + esc(r.timeRaw) + '</td>'
-      + '<td>' + cellText(r.crypto) + '</td>'
-      + '<td>' + cellText(r.network) + '</td>'
-      + '<td class="num">' + fmtAmount(r.requestAmount) + '</td>'
-      + '<td class="num">' + fmtAmount(r.deposit) + '</td>'
-      + '</tr>'
-    ).join('');
+    const files = TxStore.view(setId, { category: 'all' });
+    document.getElementById('tx-normal-sections').innerHTML = sectionsHtml(files);
   }
 
   /* ---------- Filtered ver. tab ---------- */
@@ -8136,6 +8124,11 @@ const TxView = (() => {
     const state = TxFilter.state();
     const months = TxStore.months(setId);
     const years = TxStore.years(setId);
+
+    const catOptions = ['all'].concat(TxStore.CATEGORIES);
+    document.getElementById('tx-cat-menu').innerHTML = catOptions.map(c =>
+      '<button type="button" data-cat="' + esc(c) + '"'
+      + (state.category === c ? ' class="active"' : '') + '>' + esc(catLabel(c)) + '</button>').join('');
 
     document.getElementById('tx-month-menu').innerHTML =
       '<button type="button" data-month="">All months</button>'
@@ -8146,57 +8139,71 @@ const TxView = (() => {
       + years.map(y => '<button type="button" data-year="' + esc(y) + '"'
         + (state.year === y ? ' class="active"' : '') + '>' + esc(y) + '</button>').join('');
 
+    document.getElementById('tx-cat-val').textContent = catLabel(state.category);
     document.getElementById('tx-month-val').textContent = state.month ? formatMonth(state.month) : '';
     document.getElementById('tx-year-val').textContent = state.year || '';
-
-    document.querySelectorAll('#tx-filterbar .tx-chip[data-toggle]').forEach(chip => {
-      chip.classList.toggle('active', !!state[chip.dataset.toggle]);
-    });
   }
 
-  function cellFor(col, r) {
-    if (col === 'time') return esc(r.timeRaw);
-    if (col === 'requestAmount') return fmtAmount(r.requestAmount);
-    if (col === 'deposit') return fmtAmount(r.deposit);
-    return cellText(r[col]); // crypto, network
+  /* Narrows one file to the chosen columns. Returns null when the file has
+     none of them, so it drops out of the view rather than rendering as a
+     headerless empty table. An empty selection means "every column". */
+  function projectFile(f, columns) {
+    if (!columns.length) return f;
+    const idxs = [];
+    for (let i = 0; i < f.header.length; i++) {
+      if (columns.indexOf(String(f.header[i])) > -1) idxs.push(i);
+    }
+    if (!idxs.length) return null;
+    return {
+      ...f,
+      header: idxs.map(i => f.header[i]),
+      rows: f.rows.map(cells => idxs.map(i => cells[i])),
+    };
+  }
+
+  // Column names across the files in view, in first-seen order. Blank headings
+  // are skipped - there is no sensible chip label for an unnamed column.
+  function columnUnion(files) {
+    const seen = new Set(), out = [];
+    for (const f of files) {
+      for (const h of f.header) {
+        const name = String(h == null ? '' : h);
+        if (name === '' || seen.has(name)) continue;
+        seen.add(name); out.push(name);
+      }
+    }
+    return out;
+  }
+
+  function renderColChips(available, active) {
+    const bar = document.getElementById('tx-colbar');
+    bar.classList.toggle('hidden', available.length === 0);
+    document.getElementById('tx-col-chips').innerHTML = available.map(name =>
+      '<button type="button" class="tx-chip' + (active.indexOf(name) > -1 ? ' active' : '')
+      + '" data-col="' + esc(name) + '" title="' + esc(name) + '">' + esc(name) + '</button>').join('');
   }
 
   function renderFiltered(setId) {
-    // The one auto-clear case in the spec: a selected month that no longer
-    // exists for this set (import/remove/tab-switch all funnel through
-    // render(), so checking here covers all three).
+    // The one auto-clear case: a selected month that no longer exists for this
+    // set (import/remove/tab-switch all funnel through render(), so checking
+    // here covers all three).
     let state = TxFilter.state();
     if (state.month && !TxStore.months(setId).includes(state.month)) {
       TxFilter.setMonth(null);
       state = TxFilter.state();
     }
 
-    const cols = TxFilter.visibleColumns();
-    const { rows, totalsByCrypto } = TxStore.query(setId, state);
+    // Chips come from the category/period-filtered files but BEFORE column
+    // projection, so selecting a column never removes its own chip.
+    const files = TxStore.view(setId, state);
+    const available = columnUnion(files);
+    TxFilter.retainColumns(available);
+    state = TxFilter.state();
+    renderColChips(available, state.columns);
 
-    document.getElementById('tx-filtered-head').innerHTML = '<tr>' + cols.map(c =>
-      '<th' + (NUM_COLS.has(c) ? ' class="num"' : '') + ' data-i18n="' + esc(COLUMN_LABELS[c]) + '">' + esc(COLUMN_LABELS[c]) + '</th>'
-    ).join('') + '</tr>';
-
-    document.getElementById('tx-filtered-body').innerHTML = rows.map(r =>
-      '<tr>' + cols.map(c => '<td' + (NUM_COLS.has(c) ? ' class="num"' : '') + '>' + cellFor(c, r) + '</td>').join('') + '</tr>'
-    ).join('');
-
-    const foot = document.getElementById('tx-filtered-foot');
-    if (TxFilter.showTotals() && totalsByCrypto.length) {
-      foot.innerHTML = totalsByCrypto.map((t, i) => '<tr class="tx-totals-row">' + cols.map(c => {
-        const cls = NUM_COLS.has(c) ? ' class="num"' : '';
-        if (c === 'time') return '<td' + cls + ' data-i18n="Total">' + (i === 0 ? 'Total' : '') + '</td>';
-        if (c === 'crypto') return '<td' + cls + '>' + esc(t.crypto) + '</td>';
-        if (c === 'deposit') return '<td' + cls + '>' + fmtAmount(t.total) + '</td>';
-        return '<td' + cls + '>—</td>';
-      }).join('') + '</tr>').join('');
-    } else {
-      foot.innerHTML = '';
-    }
-
-    document.getElementById('tx-filtered-empty').classList.toggle('hidden', rows.length > 0);
-    document.getElementById('tx-filtered-wrap').classList.toggle('hidden', rows.length === 0);
+    const shown = files.map(f => projectFile(f, state.columns)).filter(Boolean);
+    document.getElementById('tx-filtered-sections').innerHTML = sectionsHtml(shown);
+    document.getElementById('tx-filtered-empty').classList.toggle('hidden', shown.length > 0);
   }
 
   /* ---------- sub-tab switching (scoped to #tx-subtabs - Portfolio's own
@@ -8229,54 +8236,74 @@ const TxView = (() => {
       b.addEventListener('click', () => switchSubTab(b.dataset.sub)));
 
     document.getElementById('tx-filterbar').addEventListener('click', e => {
-      const chip = e.target.closest('.tx-chip[data-toggle]');
-      if (chip) { TxFilter.toggle(chip.dataset.toggle); render(); return; }
       if (e.target.closest('#tx-filter-clear-btn')) { TxFilter.clear(); render(); }
     });
 
+    document.getElementById('tx-col-chips').addEventListener('click', e => {
+      const chip = e.target.closest('.tx-chip[data-col]');
+      if (!chip) return;
+      TxFilter.toggleColumn(chip.dataset.col);
+      render();
+    });
+
+    const catBtn = document.getElementById('tx-cat-btn');
+    const catMenu = document.getElementById('tx-cat-menu');
     const monthBtn = document.getElementById('tx-month-btn');
     const monthMenu = document.getElementById('tx-month-menu');
     const yearBtn = document.getElementById('tx-year-btn');
     const yearMenu = document.getElementById('tx-year-menu');
 
-    monthBtn.addEventListener('click', e => {
-      e.stopPropagation();
-      const open = monthMenu.classList.toggle('hidden') === false;
-      monthBtn.setAttribute('aria-expanded', String(open));
-      yearMenu.classList.add('hidden'); yearBtn.setAttribute('aria-expanded', 'false');
-    });
-    yearBtn.addEventListener('click', e => {
-      e.stopPropagation();
-      const open = yearMenu.classList.toggle('hidden') === false;
-      yearBtn.setAttribute('aria-expanded', String(open));
-      monthMenu.classList.add('hidden'); monthBtn.setAttribute('aria-expanded', 'false');
+    // Only one of the three dropdowns is ever open at a time.
+    const menus = [[catBtn, catMenu], [monthBtn, monthMenu], [yearBtn, yearMenu]];
+    function closeAll(except) {
+      for (const [b, m] of menus) {
+        if (m === except) continue;
+        m.classList.add('hidden');
+        b.setAttribute('aria-expanded', 'false');
+      }
+    }
+    for (const [btn, menu] of menus) {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const open = menu.classList.toggle('hidden') === false;
+        btn.setAttribute('aria-expanded', String(open));
+        closeAll(menu);
+      });
+    }
+
+    catMenu.addEventListener('click', e => {
+      const b = e.target.closest('button[data-cat]');
+      if (!b) return;
+      TxFilter.setCategory(b.dataset.cat);
+      closeAll();
+      render();
     });
     monthMenu.addEventListener('click', e => {
       const b = e.target.closest('button[data-month]');
       if (!b) return;
       TxFilter.setMonth(b.dataset.month === '' ? null : b.dataset.month);
-      monthMenu.classList.add('hidden'); monthBtn.setAttribute('aria-expanded', 'false');
+      closeAll();
       render();
     });
     yearMenu.addEventListener('click', e => {
       const b = e.target.closest('button[data-year]');
       if (!b) return;
       TxFilter.setYear(b.dataset.year === '' ? null : b.dataset.year);
-      yearMenu.classList.add('hidden'); yearBtn.setAttribute('aria-expanded', 'false');
+      closeAll();
       render();
     });
+
     document.addEventListener('click', e => {
-      if (!e.target.closest('#tx-month-btn') && !e.target.closest('#tx-month-menu')) {
-        monthMenu.classList.add('hidden'); monthBtn.setAttribute('aria-expanded', 'false');
-      }
-      if (!e.target.closest('#tx-year-btn') && !e.target.closest('#tx-year-menu')) {
-        yearMenu.classList.add('hidden'); yearBtn.setAttribute('aria-expanded', 'false');
+      for (const [btn, menu] of menus) {
+        if (!e.target.closest('#' + btn.id) && !e.target.closest('#' + menu.id)) {
+          menu.classList.add('hidden');
+          btn.setAttribute('aria-expanded', 'false');
+        }
       }
     });
     document.addEventListener('keydown', e => {
       if (e.key !== 'Escape') return;
-      monthMenu.classList.add('hidden'); monthBtn.setAttribute('aria-expanded', 'false');
-      yearMenu.classList.add('hidden'); yearBtn.setAttribute('aria-expanded', 'false');
+      closeAll();
     });
   }
 
